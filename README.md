@@ -93,52 +93,114 @@ The editor is a **canvas-based state machine editor** with multiple panels.
 | 📥 导入 JSON | — | Import from a previously exported JSON file |
 | 📤 导出 JSON | — | Export current file as JSON (for backup/inspection) |
 | 🐛 载入调试 JSON | — | Load a debug JSON with state names (from game data) |
-| 💾 保存 BHV | — | Save and download the modified `.bhv` file |
+| 💾 保存 BHV | `Ctrl+S` | Save and download the modified `.bhv` file |
 | ➕ 新建状态 | — | Add a new empty state to the end of the list |
-| ↩ 撤销 / ↪ 重做 | `Ctrl+Z` / `Ctrl+Y` | Undo/redo editing operations |
-| 🌐 EN/中 | — | Toggle between English and Chinese UI |
+| ↩ 撤销 | `Ctrl+Z` | Undo last editing operation |
+| ↪ 重做 | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo last undone operation |
+| 🌐 中/EN | — | Toggle between English and Chinese UI |
 
-#### Panels (tab-switchable)
+#### Keyboard Shortcuts
 
-**Canvas Panel** — Visual state machine editor
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
+| `Ctrl+S` | Save and download BHV |
+| `Ctrl+D` | Duplicate the currently selected state(s) |
+| `Ctrl+F` | Focus the search box |
+| `Delete` | Delete all selected states (with confirmation) |
+| `Escape` | Close any open modal/dialog |
+
+#### Tab Bar (Panel Switching)
+
+The editor has 5 panels switchable via the tab bar at the top:
+
+| Tab | Panel | Description |
+|-----|-------|-------------|
+| 🕸 状态机编辑 | **Canvas Panel** | Visual state machine graph editor (default) |
+| 📊 StructB 编辑 | **StructB Panel** | Edit StructB binary configuration entries |
+| 🔢 StructC 编辑 (Hex) | **StructC Panel** | Edit StructC data as hex integers |
+| 📝 Strings 编辑 | **Strings Panel** | Edit the strings list |
+| 📋 State Action | **StateAction Panel** | View and edit the currently selected state's properties |
+
+Click any tab to switch views.
+
+#### Canvas Panel — Visual State Machine Editor
+
 ```
-┌──────────────────────────────────────────────┐
-│  [Anim1 filter] [Anim2 filter] [search]      │
-│  [100%] [+] [−] [⊞ 适应] [Node: 0] [2跳] [0,0] │
-│                                              │
-│         ┌─────┐     ┌─────┐                  │
-│         │ S0  │────→│ S1  │                  │
-│         │ idle│     │atk1 │                  │
-│         └─────┘     └─────┘                  │
-│            │                                  │
-│            ↓                                  │
-│         ┌─────┐                               │
-│         │ S2  │                               │
-│         │atk2 │                               │
-│         └─────┘                               │
-│  [Minimap]                                    │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ [Anim1 filter] [Anim2 filter] [search...]            │
+│ [100%] [+] [−] [⊞ 适应] [Nodes:0] [2跳] [Force] [Grid] [Tree] [3D] [0,0] │
+│                                                      │
+│         ┌─────┐     ┌─────┐                          │
+│         │ S0  │────→│ S1  │                          │
+│         │ idle│     │atk1 │                          │
+│         └─────┘     └─────┘                          │
+│            │                                          │
+│            ↓                                          │
+│         ┌─────┐                                       │
+│         │ S2  │                                       │
+│         │atk2 │                                       │
+│         └─────┘                                       │
+│  [Minimap]                                            │
+└──────────────────────────────────────────────────────┘
 ```
 
-- **Nodes** represent states — drag to rearrange
-- **Arrows** represent transitions — click to edit
-- **Anim1/Anim2 filters** — highlight states matching animation IDs
-- **Search** — find states by name or index
-- **Zoom** — `+`/`−`/`⊞ 适应` (fit) controls
-- **Node count** — shows total state count
-- **Focus level** — limits visible transitions to N jumps
-- **Minimap** — overview of the entire graph (click to navigate)
+**Canvas interactions:**
 
-**StructB Panel** — Edit StructB entries (binary configuration array)
+| Action | How |
+|--------|-----|
+| Select a node (state) | Click on it |
+| Multi-select | `Ctrl+Click` on multiple nodes |
+| Deselect | Click on empty canvas area |
+| Drag node to rearrange | Click and drag a node |
+| Edit transitions | Click on an arrow line between states |
+| Open state context menu | Right-click on a node |
 
-**StructC Panel** — Edit StructC entries (integer array data)
+**Zoom controls:**
 
-**Strings Panel** — Edit the strings list
+| Control | Action |
+|---------|--------|
+| `+` button | Zoom in |
+| `−` button | Zoom out |
+| ⊞ 适应 button | Fit all nodes to view |
+| Mouse wheel | Scroll zoom (when over canvas) |
 
-**Mystery Panel** — Edit the MysteryBlock (raw hex)
+**Layout switching:**
 
-**JSON Panel** — View the full raw JSON data of the current file
+| Button | Layout | Description |
+|--------|--------|-------------|
+| **Force** | Force-directed layout | Auto-arrange nodes using force-directed graph algorithm. Connected states cluster together. Best for understanding transition relationships. |
+| **Grid** | Grid layout | Arrange all states in a regular grid pattern. Best for seeing all states at a glance. |
+| **Tree** | Tree layout | BFS tree layout from root nodes. States are arranged in layers by depth. Best for visualizing transition hierarchy. |
+| **3D** | 3D view toggle | Switch between 2D canvas and 3D WebGL view. Nodes, edges, and labels rendered in 3D space. Click the same button to switch back to 2D. |
 
+**Filters & search:**
+
+| Control | Description |
+|---------|-------------|
+| Anim1 ID filter | Highlight states matching an animation ID (Unk04) |
+| Anim2 ID filter | Secondary animation filter |
+| Search box | Find states by name or index — shows matching results below |
+| Focus level (N跳) | Limit displayed transitions to N jumps from selected state |
+| Minimap | Small overview of entire graph in bottom-right corner; click to navigate |
+
+**Canvas info display:**
+
+| Display | Description |
+|---------|-------------|
+| `Nodes: N` | Total number of states loaded |
+| `x, y` | Current mouse position in canvas coordinates |
+
+#### Other Panels
+
+**StructB Panel** — Edit StructB entries (binary configuration array). Each row represents one StructB entry with fields: Unk04, Unk08, Unk0C, Unk10.
+
+**StructC Panel** — Edit StructC entries (hex integer array). Click cells to edit hex values directly.
+
+**Strings Panel** — Edit the strings list. Add, remove, or modify string entries. Common strings include animation names, event names, etc.
+
+**StateAction Panel** — View and edit the currently selected state's detailed properties. Shows all fields of the selected State including its Transitions and Conditions.
 
 ### Quick Actions
 
