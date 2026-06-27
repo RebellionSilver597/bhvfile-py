@@ -1,0 +1,3913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BHV Editor - Python Edition</title>
+<style>
+:root {
+  --bg: #1e1e2e;
+  --surface: #282840;
+  --surface2: #333355;
+  --text: #cdd6f4;
+  --text2: #a6adc8;
+  --accent: #89b4fa;
+  --accent2: #cba6f7;
+  --green: #a6e3a1;
+  --orange: #fab387;
+  --red: #f38ba8;
+  --border: #45475a;
+  --radius: 8px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --font: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+#toolbar input[type="file"] { display: none; }
+.tb-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tb-btn:hover { background: var(--accent); color: #1e1e2e; border-color: var(--accent); }
+.tb-btn.accent { background: var(--accent2); color: #1e1e2e; border-color: var(--accent2); }
+.tb-btn.success { background: var(--green); color: #1e1e2e; border-color: var(--green); }
+.tb-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
+
+/* ── Tab bar ── */
+#tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Panel ── */
+#panels {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.panel {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0; left: 0;
+}
+.panel.active { display: flex; }
+
+/* ── State Editor Canvas ── */
+#canvas-panel { flex-direction: column; }
+#canvas-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  font-size: 13px;
+}
+#canvas-toolbar input[type="text"] {
+  width: 70px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-color: #181825;
+  cursor: grab;
+}
+#canvas-wrap:active { cursor: grabbing; }
+#state-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+}
+
+/* ── Context Menu ── */
+#ctx-menu {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 0;
+  z-index: 1000;
+  display: none;
+  min-width: 180px;
+  box-shadow: var(--shadow);
+}
+#ctx-menu .ctx-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+#ctx-menu .ctx-item:hover { background: var(--surface2); }
+#ctx-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+#ctx-menu .ctx-disabled { color: var(--text2); cursor: default; }
+
+/* ── Data Grids ── */
+.table-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+table.data-grid {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--mono);
+  width: max-content;
+  min-width: 100%;
+}
+table.data-grid th, table.data-grid td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: center;
+  min-width: 50px;
+}
+table.data-grid th {
+  background: var(--surface2);
+  color: var(--accent);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+table.data-grid td {
+  background: var(--bg);
+  color: var(--text);
+}
+table.data-grid td input {
+  width: 60px;
+  padding: 3px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+table.data-grid td input:focus {
+  outline: none;
+  background: var(--surface2);
+  border-color: var(--accent);
+}
+
+/* ── Strings Editor ── */
+#strings-panel {
+  flex-direction: row;
+}
+#string-list {
+  width: 260px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+#string-list .str-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#string-list .str-item:hover { background: var(--surface2); }
+#string-list .str-item.active { background: var(--accent); color: #1e1e2e; }
+#string-editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+#string-editor-area .str-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+#string-text {
+  flex: 1;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  border: none;
+  outline: none;
+  resize: none;
+}
+#string-stats {
+  padding: 6px 12px;
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 600px;
+  box-shadow: var(--shadow);
+}
+.modal h3 { margin-bottom: 16px; color: var(--accent); }
+.modal textarea {
+  width: 100%;
+  height: 200px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 13px;
+}
+.modal .btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 3000;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { border-color: var(--red); color: var(--red); }
+#toast.success { border-color: var(--green); color: var(--green); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <input type="file" id="fileOpenBHV" accept=".bhv">
+  <button class="tb-btn" data-i18n="openBHV" onclick="document.getElementById('fileOpenBHV').click()">📂 打开 BHV</button>
+  <input type="file" id="fileImportJSON" accept=".json">
+  <button class="tb-btn" data-i18n="importJSON" onclick="document.getElementById('fileImportJSON').click()">📥 导入 JSON</button>
+  <button class="tb-btn success" data-i18n="exportJSON" onclick="exportJSON()">📤 导出 JSON</button>
+  <input type="file" id="fileLoadDebug" accept=".json">
+  <button class="tb-btn" data-i18n="loadDebug" onclick="document.getElementById('fileLoadDebug').click()">🐛 载入调试 JSON</button>
+  <button class="tb-btn accent" data-i18n="saveBHV" onclick="saveBHV()">💾 保存 BHV</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn success" data-i18n="newState" onclick="addNewState()">➕ 新建状态</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-i18n="undoBtn" onclick="undo()">↩ 撤销</button>
+  <button class="tb-btn" data-i18n="redoBtn" onclick="redo()">↪ 重做</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="toggleLang()" id="langBtn">🌐 EN</button>
+</div>
+
+<!-- Tabs -->
+<div id="tab-bar">
+  <div class="tab active" data-panel="canvas-panel" data-i18n="tabState">🕸 状态机编辑</div>
+  <div class="tab" data-panel="structb-panel" data-i18n="tabStructB">📊 StructB 编辑</div>
+  <div class="tab" data-panel="structc-panel" data-i18n="tabStructC">🔢 StructC 编辑 (Hex)</div>
+  <div class="tab" data-panel="strings-panel" data-i18n="tabStrings">📝 Strings 编辑</div>
+  <div class="tab" data-panel="stateaction-panel" data-i18n="tabStateAction">📋 State Action</div>
+</div>
+
+<!-- Panels -->
+<div id="panels">
+
+  <!-- State Editor Canvas -->
+  <div id="canvas-panel" class="panel active">
+    <div id="canvas-toolbar">
+      <span data-i18n="filter1">筛选 Anim1 ID:</span>
+      <input type="text" id="filterAnim1" placeholder="Anim1">
+      <span data-i18n="filter2">Anim2 ID:</span>
+      <input type="text" id="filterAnim2" placeholder="Anim2">
+<div style="position:relative;display:inline-block">
+  <input type="text" id="searchState" data-i18n-placeholder="searchPlaceholder" placeholder="搜索状态名/ID" style="width:150px"
+    autocomplete="off">
+  <div id="searchResults" style="display:none;position:absolute;top:100%;left:0;width:250px;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;z-index:100;font-size:11px;font-family:var(--mono)"></div>
+</div>
+      <span style="margin-left:16px" data-i18n="zoom">缩放:</span>
+      <span id="zoomLabel">100%</span>
+      <button class="tb-btn" onclick="zoomIn()" style="padding:2px 6px;font-size:11px;margin-left:4px">+</button>
+      <button class="tb-btn" onclick="zoomOut()" style="padding:2px 6px;font-size:11px">−</button>
+      <button class="tb-btn" onclick="zoomFit()" data-i18n="zoomFit" style="padding:2px 8px;font-size:11px;margin-left:8px">⊞ 适应</button>
+      <span data-i18n="nodes">| 节点:</span>
+      <span id="nodeCount">0</span>
+      <span style="margin-left:12px" data-i18n="focus">焦点:</span>
+      <select id="focusLevel" style="padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:11px">
+        <option value="0" data-i18n="focusAll">全部</option>
+        <option value="1" data-i18n="focus1">1 跳</option>
+        <option value="2" selected data-i18n="focus2">2 跳</option>
+        <option value="3" data-i18n="focus3">3 跳</option>
+      </select>
+      <span data-i18n="offset">| 偏移:</span>
+      <span id="panInfo">0,0</span>
+    </div>
+    <div id="canvas-wrap">
+      <canvas id="state-canvas"></canvas>
+      <canvas id="canvas3d" style="display:none;width:100%;height:100%"></canvas>
+      <canvas id="minimap" style="position:absolute;bottom:8px;right:8px;width:180px;height:120px;border:1px solid var(--border);border-radius:4px;background:#181825;cursor:pointer;z-index:5"></canvas>
+    </div>
+  </div>
+
+  <!-- StructB Panel -->
+  <div id="structb-panel" class="panel">
+    <div class="table-wrap" id="structb-table-wrap"></div>
+  </div>
+
+  <!-- StructC Panel -->
+  <div id="structc-panel" class="panel">
+    <div class="table-wrap" id="structc-table-wrap"></div>
+  </div>
+
+  <!-- Strings Panel -->
+  <div id="strings-panel" class="panel">
+    <div id="string-list"></div>
+    <div id="string-editor-area">
+      <div class="str-toolbar">
+        <button class="tb-btn" id="strBtnAdd" data-i18n="strAdd">+ 添加</button>
+        <button class="tb-btn" id="strBtnDel" data-i18n="strDel">− 删除</button>
+        <button class="tb-btn" id="strBtnUp" data-i18n="strUp">↑ 上移</button>
+        <button class="tb-btn" id="strBtnDown" data-i18n="strDown">↓ 下移</button>
+      </div>
+      <textarea id="string-text" data-i18n-placeholder="strPlaceholder" placeholder="选择一个字符串编辑..."></textarea>
+      <div id="string-stats" data-i18n="strNotLoaded">未加载</div>
+    </div>
+  </div>
+
+  <!-- State Action Block Panel -->
+  <div id="stateaction-panel" class="panel">
+    <div style="padding:8px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border)">
+      <span style="color:var(--accent);font-size:13px;font-weight:600">State Action Block</span>
+      <span style="color:var(--text2);font-size:11px" id="saCount">0 entries</span>
+    </div>
+    <div class="table-wrap" id="stateaction-table-wrap"></div>
+  </div>
+
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Loading overlay -->
+<div id="loading" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:5000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 40px;text-align:center">
+    <div style="font-size:24px;margin-bottom:8px">⏳</div>
+<div style="color:var(--text)" data-i18n="loading">加载中...</div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div id="statusbar" style="height:24px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;font-size:11px;color:var(--text2);flex-shrink:0;gap:16px">
+  <span id="sbStates">States: 0</span>
+  <span id="sbTrans">Transitions: 0</span>
+  <span id="sbConds">Conditions: 0</span>
+  <span id="sbSel" style="color:var(--accent)"></span>
+  <span id="sbUndo" style="margin-left:auto" data-i18n-title="undoStack"></span>
+  <span id="sbFile"></span>
+</div>
+
+<!-- Mystery Block Modal -->
+<div class="modal-overlay" id="mysteryModal" style="display:none">
+  <div class="modal">
+    <h3 id="mysteryModalTitle" data-i18n="mysteryTitle">编辑 Mystery Block（逗号分隔的 short）</h3>
+    <textarea id="mysteryText"></textarea>
+    <div class="btn-row">
+      <button class="tb-btn" data-i18n="cancel" onclick="closeMysteryModal()">取消</button>
+      <button class="tb-btn accent" data-i18n="apply" onclick="applyMystery()">应用</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ======================================================================
+//  I18N
+// ======================================================================
+const I18N = {
+  zh: {
+    // Toolbar
+    openBHV: '📂 打开 BHV', importJSON: '📥 导入 JSON', exportJSON: '📤 导出 JSON',
+    loadDebug: '🐛 载入调试 JSON', saveBHV: '💾 保存 BHV', newState: '➕ 新建状态',
+    undoBtn: '↩ 撤销', redoBtn: '↪ 重做', langZh: '🌐 EN', langEn: '🌐 中文',
+    // Tab
+    tabState: '🕸 状态机编辑', tabStructB: '📊 StructB 编辑', tabStructC: '🔢 StructC 编辑 (Hex)', tabStrings: '📝 Strings 编辑', tabStateAction: '📋 State Action',
+    // Canvas toolbar
+    filter1: '筛选 Anim1 ID:', filter2: 'Anim2 ID:', zoom: '缩放:', nodes: '节点:', offset: '偏移:',
+    zoomFit: '⊞ 适应', addInt: '+int',
+    searchPlaceholder: '搜索状态名/ID', focus: '焦点:',
+    focusAll: '全部', focus1: '1 跳', focus2: '2 跳', focus3: '3 跳',
+    // Layout buttons
+    forceLayout: '📐 力导向布局', gridLayout: '⊞ 网格布局', treeLayout: '🌲 树状布局',
+    forceRunning: '力导向布局计算中...', forceDone: '力导向布局完成',
+    gridDone: '网格布局完成', treeDone: '树状布局完成',
+    noNodes: '没有节点', treeLayers: ' 层)',
+    // Canvas hint
+    dragHint: '← 拖拽橙点创建跳转',
+    // Status bar
+    selCount: '选中: ', undoStack: '撤销/重做状态',
+    // String editor
+    strAdd: '+ 添加', strDel: '− 删除', strUp: '↑ 上移', strDown: '↓ 下移',
+    strPlaceholder: '选择一个字符串编辑...', strNotLoaded: '未加载',
+    // Loading
+    loading: '加载中...',
+    // Mystery modal
+    mysteryTitle: '编辑 State Action Block（逗号分隔 short）',
+    // Save validation
+    validateBadRef: '⚠ 检测到无效跳转引用（前5个）:', validateFixFirst: '请先修复再保存',
+    saveErr: '保存失败', syncErr: '数据同步失败',
+    // Undo/Redo toasts
+    undoCant: '无法撤销', undoDone: '已撤销',
+    redoCant: '无法重做', redoDone: '已重做',
+    // Confirm dialog
+    confirmDelete: '确定删除状态', confirmDeleteMulti: '确定删除选中的',
+    confirmDeleteMsg: '及其所有关联跳转吗？此操作可撤销。',
+    confirmDeleteMsgMulti: '个状态吗？此操作可撤销。',
+    confirmCancel: '取消', confirmYes: '确认删除',
+    // Copy transitions
+    copySelBtn: '📋 复制选中', copySelDone: '条跳转到剪贴板',
+    // Data hex
+    dataHexLabel: '→ i32:',
+    // String stats
+    strOverflow: '⚠ 内容区', strOverflowEnd: ' bytes > 65535，可能越界！',
+    strOK: '预计内容区', strOKEnd: ' bytes（OK）',
+    // Property groups
+    grpBasic: '基本信息', grpAnimCtrl: '动画 ID / 控制', grpFloat: '浮点 / 特殊值',
+    grpBody: '身体部位 / 行为', grpAnimRef: '动画引用', grpWeapon: '武器 / 刀刃',
+    grpOther: '其他',
+    // Success/error messages
+    saveSuccess: 'BHV 保存成功', saveFail: '保存失败: ',
+    exportSuccess: 'JSON 导出成功', exportFail: '导出失败: ',
+    importSuccess: 'JSON 导入成功', importFail: '导入失败: ',
+    openSuccess: 'BHV 文件加载成功', openFail: '打开失败: ',
+    debugLoadSuccess: '调试 JSON 载入: ', debugLoadFail: '载入调试 JSON 失败: ',
+    noData: '请先加载数据', newStateMsg: '新建状态 S',
+    dupNodes: '📋 复制选中节点', dupNode: '📋 复制节点', delState: '🗑 删除状态',
+    copyProps: '📋 复制属性', pasteProps: '📌 粘贴属性', pastePropsDone: '属性已粘贴到',
+    copyTrans: '📎 复制全部 ', copyTransEmpty: '📎 复制转换 (空)',
+    pasteTrans: '📌 粘贴 ', pasteTransEmpty: '📌 粘贴转换 (空)',
+    editProps: '🔮 编辑属性', editMystery: '🔧 编辑 State Action Block',
+    syncDebug: '↩ 同步调试信息', undo: '撤销功能（未连接后端历史）',
+    stateEdit: '状态 S', props: '📋 属性',
+    transitions: '🔗 Transitions', addTrans: '+ 添加跳转',
+    conditions: 'Conditions', addCond: '+ 条件',
+    structAbb: 'StructABB', cancel: '取消', apply: '应用全部',
+    noTrans: '暂无跳转', saved: '已保存状态 S',
+    copied: '已复制 ', copiedToClipboard: ' 条转换到剪贴板',
+    stateData: '🔧 State Data', bytes: 'bytes', empty: '(空)',
+    mysteryUpdated: 'State Action Block 已更新',
+    syncDebugDone: '调试信息已同步', needDebug: '请先载入调试 JSON',
+    toggle3DView: '🌐 3D', toggle2DView: '🌐 2D',
+  },
+  en: {
+    // Toolbar
+    openBHV: '📂 Open BHV', importJSON: '📥 Import JSON', exportJSON: '📤 Export JSON',
+    loadDebug: '🐛 Load Debug JSON', saveBHV: '💾 Save BHV', newState: '➕ New State',
+    undoBtn: '↩ Undo', redoBtn: '↪ Redo', langZh: '🌐 中文', langEn: '🌐 EN',
+    // Tab
+    tabState: '🕸 State Editor', tabStructB: '📊 StructB Editor', tabStructC: '🔢 StructC Editor (Hex)', tabStrings: '📝 Strings Editor', tabStateAction: '📋 State Action',
+    // Canvas toolbar
+    filter1: 'Filter Anim1 ID:', filter2: 'Anim2 ID:', zoom: 'Zoom:', nodes: 'Nodes:', offset: 'Pan:',
+    zoomFit: '⊞ Fit', addInt: '+int',
+    searchPlaceholder: 'Search state name/ID', focus: 'Focus:',
+    focusAll: 'All', focus1: '1-hop', focus2: '2-hop', focus3: '3-hop',
+    // Layout buttons
+    forceLayout: '📐 Force Layout', gridLayout: '⊞ Grid Layout', treeLayout: '🌲 Tree Layout',
+    forceRunning: 'Force layout running...', forceDone: 'Force layout done',
+    gridDone: 'Grid layout done', treeDone: 'Tree layout done',
+    noNodes: 'No nodes', treeLayers: ' layers)',
+    dragHint: '\u2190 Drag orange dot to create transition',
+    // Status bar
+    selCount: 'Sel: ', undoStack: 'Undo/Redo stack',
+    // String editor
+    strAdd: '+ Add', strDel: '\u2212 Delete', strUp: '\u2191 Up', strDown: '\u2193 Down',
+    strPlaceholder: 'Select a string to edit...', strNotLoaded: 'Not loaded',
+    // Loading
+    loading: 'Loading...',
+    // Mystery modal
+    mysteryTitle: 'Edit State Action Block (comma-sep shorts)',
+    // Save validation
+    validateBadRef: '\u26a0 Invalid transition refs (first 5):', validateFixFirst: 'Fix before saving',
+    saveErr: 'Save failed', syncErr: 'Data sync failed',
+    // Undo/Redo toasts
+    undoCant: 'Cannot undo', undoDone: 'Undone',
+    redoCant: 'Cannot redo', redoDone: 'Redone',
+    // Confirm dialog
+    confirmDelete: 'Delete state', confirmDeleteMulti: 'Delete selected',
+    confirmDeleteMsg: 'and all its transitions? Undo available.',
+    confirmDeleteMsgMulti: 'states? Undo available.',
+    confirmCancel: 'Cancel', confirmYes: 'Delete',
+    // Copy transitions
+    copySelBtn: '\ud83d\udccb Copy sel', copySelDone: ' transition(s) to clipboard',
+    // Data hex
+    dataHexLabel: '\u2192 i32:',
+    // String stats
+    strOverflow: '\u26a0 Content area', strOverflowEnd: ' bytes > 65535, may overflow!',
+    strOK: 'Est. content area', strOKEnd: ' bytes (OK)',
+    // Property groups
+    grpBasic: 'Basic Info', grpAnimCtrl: 'Anim ID / Control', grpFloat: 'Float / Special',
+    grpBody: 'Body Part / Behavior', grpAnimRef: 'Anim Refs', grpWeapon: 'Weapon / Blade',
+    grpOther: 'Other',
+    // Success/error messages
+    saveSuccess: 'BHV saved', saveFail: 'Save failed: ',
+    exportSuccess: 'JSON exported', exportFail: 'Export failed: ',
+    importSuccess: 'JSON imported', importFail: 'Import failed: ',
+    openSuccess: 'BHV loaded', openFail: 'Open failed: ',
+    debugLoadSuccess: 'Debug JSON loaded: ', debugLoadFail: 'Debug JSON load failed: ',
+    noData: 'Please load data first', newStateMsg: 'New state S',
+    dupNodes: '📋 Duplicate selected', dupNode: '📋 Duplicate', delState: '🗑 Delete',
+    copyProps: '📋 Copy props', pasteProps: '📌 Paste props', pastePropsDone: 'Props pasted to',
+    copyTrans: '📎 Copy all ', copyTransEmpty: '📎 Copy transitions (empty)',
+    pasteTrans: '📌 Paste ', pasteTransEmpty: '📌 Paste transitions (empty)',
+    editProps: '🔮 Edit properties', editMystery: '🔧 Edit State Action Block',
+    syncDebug: '↩ Sync debug info', undo: 'Undo (not connected)',
+    stateEdit: 'State S', props: '📋 Properties',
+    transitions: '🔗 Transitions', addTrans: '+ Add transition',
+    conditions: 'Conditions', addCond: '+ Condition',
+    structAbb: 'StructABB', cancel: 'Cancel', apply: 'Apply All',
+    noTrans: 'No transitions', saved: 'Saved state S',
+    copied: 'Copied ', copiedToClipboard: ' transition(s) to clipboard',
+    stateData: '🔧 State Data', bytes: 'bytes', empty: '(empty)',
+    mysteryUpdated: 'State Action Block updated',
+    syncDebugDone: 'Debug info synced', needDebug: 'Please load debug JSON first',
+    toggle3DView: '🌐 3D', toggle2DView: '🌐 2D',
+  }
+};
+let currentLang = 'zh';
+
+function t(key) { return (I18N[currentLang] || I18N.zh)[key] || key; }
+function toggleLang() {
+  currentLang = currentLang === 'zh' ? 'en' : 'zh';
+document.getElementById('langBtn').textContent = currentLang === 'zh' ? t('langZh') : t('langEn');
+  applyI18N();
+  if (model) { 
+    buildNodes(); buildStructBTable(); buildStructCTable(); buildStringList(); drawCanvas(); 
+      // Rebuild open modal if exists
+      const overlay = document.querySelector('.modal-overlay');
+      if (overlay && overlay.__st) {
+        overlay.remove();  // remove old modal first
+        openStateDetail({ state: overlay.__st, index: overlay.__st.Index });
+      }
+  }
+}
+function applyI18N() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  // Dynamic buttons that change text based on state
+  const btn3d = document.getElementById('btn3dToggle');
+  if (btn3d) btn3d.textContent = t(is3d ? 'toggle2DView' : 'toggle3DView');
+  // Static modal titles
+  const mt = document.getElementById('mysteryModalTitle');
+  if (mt) mt.textContent = t('editMystery');
+  // Modal buttons (may exist if modal is open)
+  const btnCancel = document.querySelector('.modal-overlay .tb-btn[data-i18n="cancel"]');
+  if (btnCancel) btnCancel.textContent = t('cancel');
+  const btnApply = document.getElementById('btnApplyAll');
+  if (btnApply) btnApply.textContent = t('apply');
+}
+
+// ======================================================================
+//  GLOBAL STATE
+// ======================================================================
+const API = 'http://127.0.0.1:8000';
+let model = null;           // Full BHVFile dict
+let debugStates = [];       // Debug JSON
+let selectedNodeIdx = -1;
+let selectedNodes = new Set();
+let clipboardTransitions = [];
+let clipboardNodes = [];
+let clipboardProps = null;
+
+// Canvas state
+let canvasScale = 1.0;
+let panX = 0, panY = 0;
+let nodes = [];             // [{index, x, y, w, h}]
+let draggingNode = null;
+let dragOffX = 0, dragOffY = 0;
+let pendingSource = null;
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let boxSelecting = false;
+let boxStart = null;
+let boxRect = null;
+
+// Undo/Redo
+let history = [];
+let historyIndex = -1;
+const MAX_HISTORY = 50;
+
+function pushHistory() {
+  if (!model) return;
+  if (historyIndex < history.length - 1) {
+    history = history.slice(0, historyIndex + 1);
+  }
+  history.push(JSON.parse(JSON.stringify(model)));
+  if (history.length > MAX_HISTORY) history.shift();
+  historyIndex = history.length - 1;
+}
+
+function undo() {
+  if (historyIndex <= 0 || history.length === 0) { toast(t('undoCant'), 'error'); return; }
+  historyIndex--;
+  model = JSON.parse(JSON.stringify(history[historyIndex]));
+  loadModel();
+  toast(t('undoDone'), 'success');
+}
+
+function redo() {
+  if (historyIndex >= history.length - 1) { toast(t('redoCant'), 'error'); return; }
+  historyIndex++;
+  model = JSON.parse(JSON.stringify(history[historyIndex]));
+  loadModel();
+  toast(t('redoDone'), 'success');
+}
+
+// Strings state
+let selectedStringIndex = -1;
+
+// ======================================================================
+//  TOAST
+// ======================================================================
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = type + ' show';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.className = '', 2500);
+}
+
+function confirm(msg, onYes, onNo) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'display:flex;z-index:6000';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 32px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+      <div style="margin-bottom:20px;font-size:14px;color:var(--text)">${msg}</div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button class="tb-btn" id="confirmNo" style="min-width:80px">${t("confirmCancel")}</button>
+        <button class="tb-btn" id="confirmYes" style="min-width:80px;background:var(--red);color:#fff;border-color:var(--red)">${t("confirmYes")}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#confirmNo').onclick = () => { overlay.remove(); if (onNo) onNo(); };
+  overlay.querySelector('#confirmYes').onclick = () => { overlay.remove(); if (onYes) onYes(); };
+  // Close on overlay click (background area)
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); if (onNo) onNo(); } });
+}
+
+// ======================================================================
+//  API HELPERS
+// ======================================================================
+async function api(method, path, body=null) {
+  const opts = { method, headers: {} };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(API + path, opts);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({detail: resp.statusText}));
+    throw new Error(err.detail || resp.statusText);
+  }
+  const ct = resp.headers.get('Content-Type') || '';
+  if (ct.includes('application/json')) return resp.json();
+  if (ct.includes('application/octet-stream') || ct.includes('application/json')) {
+    const blob = await resp.blob();
+    return blob;
+  }
+  return resp;
+}
+
+// ======================================================================
+//  FILE OPERATIONS
+// ======================================================================
+document.getElementById('fileOpenBHV').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    showLoading();
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch(API + '/api/file/open', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (data.status !== 'ok') throw new Error(data.detail);
+    model = data.data;
+    loadModel();
+    document.getElementById('sbFile').textContent = '📄 ' + file.name;
+    hideLoading();
+    toast(t('openSuccess'), 'success');
+  } catch(err) {
+    hideLoading();
+    toast(t('openFail') + err.message, 'error');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('fileImportJSON').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch(API + '/api/file/import-json', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (data.status !== 'ok') throw new Error(data.detail);
+    model = data.data;
+    loadModel();
+    toast(t('importSuccess'), 'success');
+  } catch(err) {
+    toast(t('importFail') + err.message, 'error');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('fileLoadDebug').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch(API + '/api/file/load-debug-json', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      debugStates = data.states || [];
+      if (model) buildNodes();
+      toast(t('debugLoadSuccess') + debugStates.length + ' 个状态', 'success');
+    }
+  } catch(err) {
+    toast(t('debugLoadFail') + err.message, 'error');
+  }
+  e.target.value = '';
+});
+
+async function saveBHV() {
+  if (!model) { toast(t('noData'), 'error'); return; }
+  // Validate cross-references before saving
+  const maxIdx = model.States.length - 1;
+  let badRefs = [];
+  for (let si = 0; si < model.States.length; si++) {
+    const st = model.States[si];
+    if (!st.Transitions) continue;
+    for (const tr of st.Transitions) {
+      if (tr.StateIndex < 0 || tr.StateIndex > maxIdx) {
+        badRefs.push('S' + si + '→S' + tr.StateIndex);
+      }
+    }
+  }
+  if (badRefs.length > 0) {
+    toast(t('validateBadRef') + '\n' + badRefs.slice(0, 5).join(', ') + t('validateFixFirst'), 'error');
+    return;
+  }
+  showLoading();
+  try {
+    const putResp = await api('PUT', '/api/data', model);
+    if (putResp.status !== 'ok') throw new Error(putResp.detail || t('saveErr'));
+    const resp = await fetch(API + '/api/file/save', { method: 'POST' });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({detail: resp.statusText}));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'output.bhv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(t('saveSuccess'), 'success');
+  } catch(err) {
+    toast(t('saveFail') + err.message, 'error');
+  }
+  hideLoading();
+}
+
+async function exportJSON() {
+  if (!model) { toast(t('noData'), 'error'); return; }
+  showLoading();
+  try {
+    const putResp = await api('PUT', '/api/data', model);
+    if (putResp.status !== 'ok') throw new Error(putResp.detail || t('syncErr'));
+    const resp = await fetch(API + '/api/file/export-json', { method: 'POST' });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({detail: resp.statusText}));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'output.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(t('exportSuccess'), 'success');
+  } catch(err) {
+    toast(t('exportFail') + err.message, 'error');
+  }
+  hideLoading();
+}
+
+// ======================================================================
+//  MODEL LOADING
+// ======================================================================
+function loadModel() {
+  if (!model) return;
+  buildNodes();
+  buildStructBTable();
+  buildStructCTable();
+  buildStringList();
+  buildStateActionTable();
+  document.getElementById('nodeCount').textContent = model.States?.length || 0;
+  // Initialize history with current state
+  if (history.length === 0) pushHistory();
+  // Update status bar
+  updateStatusBar();
+}
+
+function updateStatusBar() {
+  const states = model?.States || [];
+  let totalTrans = 0, totalConds = 0;
+  for (const st of states) {
+    totalTrans += st.Transitions?.length || 0;
+    for (const tr of (st.Transitions || [])) {
+      totalConds += tr.Conditions?.length || 0;
+    }
+  }
+  document.getElementById('sbStates').textContent = 'States: ' + states.length;
+  document.getElementById('sbTrans').textContent = 'Transitions: ' + totalTrans;
+  document.getElementById('sbConds').textContent = 'Conditions: ' + totalConds;
+  // Selected count
+  const selCount = selectedNodes?.size || 0;
+  document.getElementById('sbSel').textContent = selCount > 0 ? '选中: ' + selCount : '';
+  // Undo/Redo stack
+  const sbUndo = document.getElementById('sbUndo');
+  if (history.length > 0) {
+    sbUndo.textContent = '↩' + (historyIndex + 1) + '/' + history.length;
+    sbUndo.style.color = historyIndex >= 0 ? 'var(--green)' : 'var(--text2)';
+  } else {
+    sbUndo.textContent = '';
+  }
+}
+
+// Zoom controls
+function zoomIn() {
+  canvasScale = Math.min(3.0, canvasScale * 1.2);
+  document.getElementById('zoomLabel').textContent = Math.round(canvasScale * 100) + '%';
+  drawCanvas();
+}
+function zoomOut() {
+  canvasScale = Math.max(0.2, canvasScale / 1.2);
+  document.getElementById('zoomLabel').textContent = Math.round(canvasScale * 100) + '%';
+  drawCanvas();
+}
+function zoomFit() {
+  if (nodes.length === 0) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const nd of nodes) {
+    if (nd.x < minX) minX = nd.x;
+    if (nd.y < minY) minY = nd.y;
+    if (nd.x + nd.w > maxX) maxX = nd.x + nd.w;
+    if (nd.y + nd.h > maxY) maxY = nd.y + nd.h;
+  }
+  const rect = canvasWrap.getBoundingClientRect();
+  const sx = rect.width / (maxX - minX + 100);
+  const sy = rect.height / (maxY - minY + 100);
+  canvasScale = Math.max(0.2, Math.min(3.0, Math.min(sx, sy)));
+  panX = rect.width/2 - (minX + maxX)/2 * canvasScale;
+  panY = rect.height/2 - (minY + maxY)/2 * canvasScale;
+  document.getElementById('zoomLabel').textContent = Math.round(canvasScale * 100) + '%';
+  document.getElementById('panInfo').textContent = `${panX.toFixed(0)},${panY.toFixed(0)}`;
+  drawCanvas();
+}
+
+function showLoading() { document.getElementById('loading').style.display = 'flex'; }
+function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+
+// ======================================================================
+//  STATE CANVAS
+// ======================================================================
+const canvas = document.getElementById('state-canvas');
+const ctx = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
+
+function buildNodes() {
+  nodes = [];
+  const states = model?.States || [];
+  if (states.length === 0) return;
+
+  const filter1 = document.getElementById('filterAnim1').value;
+  const filter2 = document.getElementById('filterAnim2').value;
+  const f1 = filter1 ? parseInt(filter1) : null;
+  const f2 = filter2 ? parseInt(filter2) : null;
+  const focusLevel = parseInt(document.getElementById('focusLevel').value) || 0;
+
+  // Determine which states to show based on focus
+  let visibleIndices = null; // null = all
+  if (focusLevel > 0) {
+    // If there are selected nodes, focus on them. Otherwise focus on roots.
+    let seeds = [...selectedNodes];
+    if (seeds.length === 0) {
+      // Roots: states with no incoming transitions
+      const inDeg = new Map();
+      for (const st of states) {
+        for (const tr of (st.Transitions || [])) {
+          inDeg.set(tr.StateIndex, (inDeg.get(tr.StateIndex) || 0) + 1);
+        }
+      }
+      for (const st of states) {
+        if (!inDeg.has(st.Index)) seeds.push(st.Index);
+      }
+    }
+    // BFS for N hops
+    visibleIndices = new Set(seeds);
+    let frontier = [...seeds];
+    for (let hop = 0; hop < focusLevel; hop++) {
+      const next = [];
+      for (const idx of frontier) {
+        const st = states[idx];
+        if (!st?.Transitions) continue;
+        for (const tr of st.Transitions) {
+          if (!visibleIndices.has(tr.StateIndex)) {
+            visibleIndices.add(tr.StateIndex);
+            next.push(tr.StateIndex);
+          }
+        }
+      }
+      // Also include incoming (reverse) edges for context
+      if (hop === 0) {
+        for (const st of states) {
+          if (!st?.Transitions) continue;
+          for (const tr of st.Transitions) {
+            if (seeds.includes(tr.StateIndex) && !visibleIndices.has(st.Index)) {
+              visibleIndices.add(st.Index);
+              next.push(st.Index);
+            }
+          }
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  const filtered = states.filter((st, i) => {
+    if (visibleIndices && !visibleIndices.has(st.Index)) return false;
+    const sb1 = (model.StructBs || [])[st.StructBid];
+    const sb2 = (model.StructBs || [])[st.StructBsid2];
+    if (f1 !== null && (!sb1 || sb1.Unk00 !== f1)) return false;
+    if (f2 !== null && (!sb2 || sb2.Unk00 !== f2)) return false;
+    return true;
+  });
+
+  const n = filtered.length;
+  if (n === 0) { document.getElementById('nodeCount').textContent = '0'; drawCanvas(); return; }
+  const minW = n > 100 ? 90 : n > 50 ? 110 : 130;
+  const minH = n > 100 ? 50 : n > 50 ? 60 : 70;
+  const spacingX = n > 100 ? 160 : n > 50 ? 180 : 200;
+  const spacingY = n > 100 ? 120 : n > 50 ? 140 : 160;
+  const cols = Math.ceil(Math.sqrt(n));
+
+  filtered.forEach((st, i) => {
+    const sb1 = (model.StructBs || [])[st.StructBid];
+    const sb2 = (model.StructBs || [])[st.StructBsid2];
+    let label = `S${st.Index} A1:${sb1?.Unk00 ?? -1} A2:${sb2?.Unk00 ?? -1}`;
+    const dbgName = debugStates[st.Index]?.StateName;
+    if (dbgName) label += `\n${dbgName}`;
+    if (st.Transitions?.length) label += `\n→${st.Transitions.length}`;
+
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = 50 + col * spacingX, y = 50 + row * spacingY;
+    nodes.push({ index: st.Index, x, y, w: minW, h: minH, label, state: st, dbgName });
+  });
+  document.getElementById('nodeCount').textContent = n + (visibleIndices ? ` / ${states.length}` : '');
+  updateStatusBar();
+  if (is3d) build3DGraph(); else { drawCanvas(); if (visibleIndices && n > 0) setTimeout(zoomFit, 50); }
+}
+
+// Focus level change rebuilds
+document.getElementById('focusLevel').addEventListener('change', buildNodes);
+
+function screenToWorld(sx, sy) {
+  const rect = canvasWrap.getBoundingClientRect();
+  return {
+    x: (sx - rect.left - panX) / canvasScale,
+    y: (sy - rect.top - panY) / canvasScale
+  };
+}
+
+function findNodeAt(wx, wy) {
+  return nodes.find(nd => wx >= nd.x && wx <= nd.x + nd.w && wy >= nd.y && wy <= nd.y + nd.h);
+}
+
+function drawCanvas() {
+  // Resize canvas
+  canvas.width = canvasWrap.clientWidth;
+  canvas.height = canvasWrap.clientHeight;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(canvasScale, 0, 0, canvasScale, panX, panY);
+
+  // ── Draw transitions ──
+  // Two-pass: first count edges per pair, then draw with proper spacing
+  const pairEdgeMap = new Map(); // "min-max" → total count
+  for (const nd of nodes) {
+    if (!nd.state?.Transitions) continue;
+    for (const tr of nd.state.Transitions) {
+      const a = Math.min(nd.index, tr.StateIndex);
+      const b = Math.max(nd.index, tr.StateIndex);
+      const k = a + '-' + b;
+      pairEdgeMap.set(k, (pairEdgeMap.get(k) || 0) + 1);
+    }
+  }
+  const drawnPerPair = new Map();
+  
+  // Edge base width (thicker for visibility)
+  const edgeW = 2.2 / canvasScale;
+  ctx.lineCap = 'round';
+  
+  for (const nd of nodes) {
+    const st = nd.state;
+    if (!st.Transitions) continue;
+    for (const tr of st.Transitions) {
+      const tgt = nodes.find(n => n.index === tr.StateIndex);
+      if (!tgt) continue;
+      
+      const condCnt = tr.Conditions?.length || 0;
+      // Brighter colors for visibility on dark bg
+      const color = condCnt > 5 ? '#f38ba8' : condCnt > 0 ? '#74c7ec' : '#9399b2';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = edgeW;
+      
+      // ── Self-loop ──
+      if (nd.index === tr.StateIndex) {
+        const cx = nd.x + nd.w / 2, cy = nd.y + nd.h / 2;
+        const loopR = nd.w * 0.5;
+        const selfIdx = drawnPerPair.get(`self-${nd.index}`) || 0;
+        drawnPerPair.set(`self-${nd.index}`, selfIdx + 1);
+        // Stack self-loops vertically
+        const arcY = cy - nd.h * 0.1 - selfIdx * 14 / canvasScale;
+        ctx.beginPath();
+        ctx.ellipse(cx, arcY, loopR * 0.6, loopR * 0.35, 0, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+        const ax = cx + loopR * 0.6 * Math.cos(Math.PI * 0.85);
+        const ay = arcY + loopR * 0.35 * Math.sin(Math.PI * 0.85);
+        // Arrow tangent: derivative of ellipse at endAngle
+        const au = -loopR * 0.6 * Math.sin(Math.PI * 0.85);
+        const av = loopR * 0.35 * Math.cos(Math.PI * 0.85);
+        const alen = Math.sqrt(au * au + av * av) || 1;
+        drawArrow(ax, ay, au / alen, av / alen);
+        continue;
+      }
+      
+      // ── Normal edge ──
+      const cx1 = nd.x + nd.w / 2, cy1 = nd.y + nd.h / 2;
+      const cx2 = tgt.x + tgt.w / 2, cy2 = tgt.y + tgt.h / 2;
+      const dx = cx2 - cx1, dy = cy2 - cy1;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist, uy = dy / dist;
+      const nx = -uy, ny = ux;  // perpendicular
+      
+      // Multi-edge offset: each edge gets a different lane
+      const a = Math.min(nd.index, tr.StateIndex);
+      const b = Math.max(nd.index, tr.StateIndex);
+      const pKey = a + '-' + b;
+      const totalInPair = pairEdgeMap.get(pKey) || 1;
+      const nth = drawnPerPair.get(pKey) || 0;
+      drawnPerPair.set(pKey, nth + 1);
+      
+      // Spread range: -(n-1)/2 ... 0 ... +(n-1)/2, in steps of 1
+      const offsetIdx = nth - (totalInPair - 1) / 2;
+      const gap = 14 / canvasScale;
+      const spread = offsetIdx * gap;
+      
+      // Curve bend: stronger for nearby nodes
+      const bendFrac = Math.max(0.06, Math.min(0.22, 50 / dist));
+      const bendDist = dist * bendFrac + Math.abs(spread) * 0.6;
+      const mx = (cx1 + cx2) / 2 + nx * bendDist;
+      const my = (cy1 + cy2) / 2 + ny * bendDist;
+      
+      // Endpoints on node edges
+      const margin = 4 / canvasScale;
+      const sx = cx1 + ux * (nd.w / 2 + margin);
+      const sy = cy1 + uy * (nd.h / 2 + margin);
+      const ex = cx2 - ux * (tgt.w / 2 + margin);
+      const ey = cy2 - uy * (tgt.h / 2 + margin);
+      
+      // Subtle shadow for depth
+      ctx.shadowColor = color + '66';
+      ctx.shadowBlur = 3 / canvasScale;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(mx, my, ex, ey);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Arrow
+      drawArrow(ex, ey, ux, uy);
+      
+      // Condition count badge — only when zoomed in
+      if (condCnt > 0 && canvasScale >= 0.45) {
+        const badgeX = mx + nx * 2 / canvasScale;
+        const badgeY = my + ny * 2 / canvasScale;
+        const badgeR = Math.min(6 / canvasScale, 10);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1e1e2e';
+        ctx.font = `bold ${Math.max(8, 9 / canvasScale)}px "Segoe UI", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(condCnt, badgeX, badgeY);
+      }
+    }
+  }
+
+  function drawArrow(x, y, ux, uy) {
+    const len = 8 / canvasScale;
+    const wid = 4.5 / canvasScale;
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - ux * len + uy * wid, y - uy * len - ux * wid);
+    ctx.lineTo(x - ux * len - uy * wid, y - uy * len + ux * wid);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Draw nodes (rounded rect with gradient, shadow, Anim1 color coding)
+  // Color palette for Anim1 IDs — 10 distinct hues
+  const ANIM_COLORS = [
+    '#89b4fa', '#a6e3a1', '#f9e2af', '#fab387', '#f38ba8',
+    '#cba6f7', '#94e2d5', '#b4befe', '#f5c2e7', '#89dceb'
+  ];
+  
+  // Precompute in-degree for root/leaf detection
+  const inDeg = new Map();
+  for (const nd of nodes) {
+    if (!nd.state?.Transitions) continue;
+    for (const tr of nd.state.Transitions) {
+      inDeg.set(tr.StateIndex, (inDeg.get(tr.StateIndex) || 0) + 1);
+    }
+  }
+  
+  // Helper: gradient fill for a rounded rect
+  function fillGradient(x, y, w, h, r, topColor, botColor) {
+    const grad = ctx.createLinearGradient(x, y, x, y + h);
+    grad.addColorStop(0, topColor);
+    grad.addColorStop(1, botColor);
+    ctx.fillStyle = grad;
+    roundRect(ctx, x, y, w, h, r);
+    ctx.fill();
+  }
+  
+  let nodeIdx = 0;
+  for (const nd of nodes) {
+    nodeIdx++;
+    const hasDbg = !!nd.dbgName;
+    const isHighlight = window._highlightIdx === nd.index;
+    const isSelected = selectedNodes.has(nd.index);
+    const sb1 = (model?.StructBs || [])[nd.state?.StructBid];
+    let anim1 = sb1?.Unk00 ?? -1;
+    let anim2 = sb1?.Unk04 ?? -1;
+    // When StructBid=-1, try LeftHandAnimationId / StructBsid2 for A1/A2
+    if (anim1 === -1 && nd.state) {
+      const lha = nd.state.LeftHandAnimationId;
+      if (lha >= 0) {
+        const sbLh = (model?.StructBs || [])[lha];
+        anim1 = sbLh?.Unk00 ?? anim1;
+        anim2 = sbLh?.Unk04 ?? anim2;
+      } else {
+        const sbid2 = nd.state.StructBsid2;
+        if (sbid2 >= 0) {
+          const sb2 = (model?.StructBs || [])[sbid2];
+          anim1 = sb2?.Unk00 ?? anim1;
+          anim2 = sb2?.Unk04 ?? anim2;
+        }
+      }
+    }
+    const colorIdx = ((anim1 % ANIM_COLORS.length) + ANIM_COLORS.length) % ANIM_COLORS.length;
+    const baseColor = ANIM_COLORS[colorIdx];
+    
+    // Darken color for gradient bottom
+    const darken = (hex, amt) => {
+      const num = parseInt(hex.slice(1), 16);
+      const r = Math.max(0, (num >> 16) - amt);
+      const g = Math.max(0, ((num >> 8) & 0xFF) - amt);
+      const b = Math.max(0, (num & 0xFF) - amt);
+      return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    };
+    
+    const r = 8 / canvasScale;
+    const topColor = isHighlight ? '#f9e2af' : (hasDbg ? '#a6e3a1' : baseColor);
+    const botColor = isHighlight ? '#e5c890' : darken(topColor, 30);
+    
+    // Subtle shadow under every node
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 6 / canvasScale;
+    ctx.shadowOffsetY = 2 / canvasScale;
+    fillGradient(nd.x, nd.y, nd.w, nd.h, r, topColor, botColor);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // Highlight glow
+    if (isHighlight) {
+      ctx.shadowColor = '#f9e2af88';
+      ctx.shadowBlur = 16 / canvasScale;
+      roundRect(ctx, nd.x, nd.y, nd.w, nd.h, r);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    
+    // Border
+    const isRoot = (inDeg.get(nd.index) || 0) === 0;
+    const isLeaf = !nd.state?.Transitions?.length;
+    ctx.strokeStyle = isSelected ? '#f38ba8' : isHighlight ? '#e5c890' : 'rgba(205,214,244,0.5)';
+    ctx.lineWidth = (isSelected ? 3 : isRoot ? 2.2 : 1.2) / canvasScale;
+    roundRect(ctx, nd.x, nd.y, nd.w, nd.h, r);
+    ctx.stroke();
+    
+    // Root dot (entry) — top-left corner
+    if (isRoot) {
+      ctx.fillStyle = '#a6e3a1';
+      ctx.beginPath();
+      ctx.arc(nd.x + 5/canvasScale, nd.y + 5/canvasScale, 4/canvasScale, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // Leaf dot (exit) — top-right corner 
+    if (isLeaf) {
+      ctx.fillStyle = '#f38ba8';
+      ctx.beginPath();
+      ctx.arc(nd.x + nd.w - 5/canvasScale, nd.y + 5/canvasScale, 4/canvasScale, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Label (only when zoomed in enough)
+    if (canvasScale >= 0.35) {
+      // Anim1 chip badge at top
+      const chipH = 14 / canvasScale;
+      const chipY = nd.y + 6 / canvasScale;
+      ctx.fillStyle = 'rgba(30,30,46,0.7)';
+      roundRect(ctx, nd.x + 4/canvasScale, chipY, nd.w - 8/canvasScale, chipH, 3/canvasScale);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `${Math.max(8, 9/canvasScale)}px "Segoe UI", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`A1:${anim1}  A2:${anim2}`, nd.x + nd.w/2, chipY + chipH/2);
+      
+      // State index — large, centered
+      ctx.fillStyle = '#1e1e2e';
+      const idxSize = Math.min(14 / canvasScale, 22);
+      ctx.font = `bold ${Math.max(10, idxSize)}px "Segoe UI", sans-serif`;
+      ctx.fillText(`S${nd.index}`, nd.x + nd.w/2, nd.y + nd.h/2 + chipH/2);
+      
+      // Bottom info line — transition count + debug name
+      if (hasDbg || (nd.state?.Transitions?.length || 0) > 0) {
+        const infoY = nd.y + nd.h - 8 / canvasScale;
+        ctx.font = `${Math.max(7, 8/canvasScale)}px "Segoe UI", sans-serif`;
+        ctx.fillStyle = '#6c7086';
+        const parts = [];
+        if (nd.state?.Transitions?.length) parts.push(`→${nd.state.Transitions.length}`);
+        if (hasDbg) parts.push(nd.dbgName.substring(0, 12));
+        ctx.fillText(parts.join(' '), nd.x + nd.w/2, infoY);
+      }
+    }
+
+    // Hint on first node
+    if (nodeIdx === 1 && nodes.length > 0) {
+      ctx.fillStyle = '#fab38788';
+      ctx.font = `${Math.max(9, 10/canvasScale)}px "Segoe UI", sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(t('dragHint'), nd.x + nd.w + 4, nd.y + 10);
+    }
+  }
+
+  // Box selection
+  if (boxRect) {
+    ctx.strokeStyle = '#cba6f7';
+    ctx.lineWidth = 1.5 / canvasScale;
+    ctx.setLineDash([5 / canvasScale, 3 / canvasScale]);
+    ctx.strokeRect(boxRect.x, boxRect.y, boxRect.w, boxRect.h);
+    ctx.setLineDash([]);
+  }
+
+  // Preview line
+  if (pendingSource) {
+    const src = pendingSource;
+    ctx.strokeStyle = '#fab387';
+    ctx.lineWidth = 2 / canvasScale;
+    ctx.beginPath();
+    ctx.moveTo(src.x + src.w/2, src.y + src.h/2);
+    ctx.lineTo(worldMouse.x, worldMouse.y);
+    ctx.stroke();
+  }
+
+  // Draw minimap
+  drawMinimap();
+}
+
+function drawMinimap() {
+  const mm = document.getElementById('minimap');
+  if (!mm || nodes.length === 0) { mm.style.display = 'none'; return; }
+  mm.style.display = 'block';
+  const mw = 180, mh = 120;
+  mm.width = mw; mm.height = mh;
+  const mctx = mm.getContext('2d');
+  mctx.fillStyle = '#181825';
+  mctx.fillRect(0, 0, mw, mh);
+
+  // Compute bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const nd of nodes) {
+    if (nd.x < minX) minX = nd.x;
+    if (nd.y < minY) minY = nd.y;
+    if (nd.x + nd.w > maxX) maxX = nd.x + nd.w;
+    if (nd.y + nd.h > maxY) maxY = nd.y + nd.h;
+  }
+  const pad = 20;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const ww = maxX - minX, wh = maxY - minY;
+  const sx = mw / ww, sy = mh / wh;
+  const scale = Math.min(sx, sy);
+
+  // Draw nodes as dots
+  mctx.fillStyle = '#89b4fa88';
+  for (const nd of nodes) {
+    const cx = (nd.x + nd.w/2 - minX) * scale + (mw - ww * scale) / 2;
+    const cy = (nd.y + nd.h/2 - minY) * scale + (mh - wh * scale) / 2;
+    mctx.fillRect(cx - 2, cy - 2, 4, 4);
+  }
+
+  // Draw viewport rectangle
+  const rect = canvasWrap.getBoundingClientRect();
+  const vx = -panX / canvasScale, vy = -panY / canvasScale;
+  const vw = rect.width / canvasScale, vh = rect.height / canvasScale;
+  mctx.strokeStyle = '#f38ba8';
+  mctx.lineWidth = 1;
+  mctx.strokeRect(
+    (vx - minX) * scale + (mw - ww * scale) / 2,
+    (vy - minY) * scale + (mh - wh * scale) / 2,
+    vw * scale, vh * scale
+  );
+}
+
+// Minimap click to navigate
+document.getElementById('minimap').addEventListener('click', (e) => {
+  if (nodes.length === 0) return;
+  const mm = e.target;
+  const rect = mm.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  // Compute world position
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const nd of nodes) {
+    if (nd.x < minX) minX = nd.x;
+    if (nd.y < minY) minY = nd.y;
+    if (nd.x + nd.w > maxX) maxX = nd.x + nd.w;
+    if (nd.y + nd.h > maxY) maxY = nd.y + nd.h;
+  }
+  const pad = 20;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const ww = maxX - minX, wh = maxY - minY;
+  const sx = 180 / ww, sy = 120 / wh;
+  const scale = Math.min(sx, sy);
+  const wx = (mx - (180 - ww * scale) / 2) / scale + minX;
+  const wy = (my - (120 - wh * scale) / 2) / scale + minY;
+  const cr = canvasWrap.getBoundingClientRect();
+  panX = cr.width/2 - wx * canvasScale;
+  panY = cr.height/2 - wy * canvasScale;
+  document.getElementById('panInfo').textContent = `${panX.toFixed(0)},${panY.toFixed(0)}`;
+  drawCanvas();
+});
+
+let worldMouse = { x: 0, y: 0 };
+
+canvasWrap.addEventListener('mousedown', (e) => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  worldMouse = w;
+  if (e.button === 1) {
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    e.preventDefault();
+    return;
+  }
+  if (e.button === 0) {
+    // Check quick trigger
+    for (const nd of nodes) {
+      if (w.x >= nd.x + nd.w - 14 && w.x <= nd.x + nd.w && w.y >= nd.y && w.y <= nd.y + 14) {
+        pendingSource = nd;
+        return;
+      }
+    }
+    const hit = findNodeAt(w.x, w.y);
+    if (hit) {
+      if (!e.shiftKey) { selectedNodes.clear(); }
+      selectedNodes.add(hit.index);
+      draggingNode = hit;
+      dragOffX = w.x - hit.x;
+      dragOffY = w.y - hit.y;
+      return;
+    }
+    selectedNodes.clear();
+    pendingSource = null;
+    boxSelecting = true;
+    boxStart = { x: w.x, y: w.y };
+    boxRect = null;
+  }
+});
+
+canvasWrap.addEventListener('mousemove', (e) => {
+  worldMouse = screenToWorld(e.clientX, e.clientY);
+  if (isPanning) {
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    document.getElementById('panInfo').textContent = `${panX.toFixed(0)},${panY.toFixed(0)}`;
+    drawCanvas();
+    return;
+  }
+  if (draggingNode) {
+    draggingNode.x = worldMouse.x - dragOffX;
+    draggingNode.y = worldMouse.y - dragOffY;
+    drawCanvas();
+    return;
+  }
+  if (boxSelecting) {
+    const x = Math.min(boxStart.x, worldMouse.x);
+    const y = Math.min(boxStart.y, worldMouse.y);
+    const w = Math.abs(worldMouse.x - boxStart.x);
+    const h = Math.abs(worldMouse.y - boxStart.y);
+    boxRect = { x, y, w, h };
+    drawCanvas();
+    return;
+  }
+  if (pendingSource) {
+    canvasWrap.style.cursor = 'crosshair';
+    drawCanvas();
+    return;
+  }
+  const hit = findNodeAt(worldMouse.x, worldMouse.y);
+  canvasWrap.style.cursor = hit ? 'pointer' : '';
+});
+
+canvasWrap.addEventListener('mouseup', (e) => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  if (isPanning) { isPanning = false; return; }
+  if (draggingNode) {
+    // Update state position
+    draggingNode = null;
+    syncNodePositions();
+    drawCanvas();
+    return;
+  }
+  if (pendingSource) {
+    const dst = findNodeAt(w.x, w.y);
+    if (dst && dst !== pendingSource) {
+      addTransition(pendingSource, dst);
+    }
+    pendingSource = null;
+    canvasWrap.style.cursor = '';
+    drawCanvas();
+    return;
+  }
+  if (boxSelecting && boxRect) {
+    boxSelecting = false;
+    for (const nd of nodes) {
+      if (nd.x >= boxRect.x && nd.x + nd.w <= boxRect.x + boxRect.w &&
+          nd.y >= boxRect.y && nd.y + nd.h <= boxRect.y + boxRect.h) {
+        selectedNodes.add(nd.index);
+      }
+    }
+    boxRect = null;
+    drawCanvas();
+    return;
+  }
+  boxSelecting = false;
+});
+
+canvasWrap.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+  canvasScale *= zoomFactor;
+  canvasScale = Math.max(0.2, Math.min(3.0, canvasScale));
+  document.getElementById('zoomLabel').textContent = Math.round(canvasScale * 100) + '%';
+  drawCanvas();
+});
+
+canvasWrap.addEventListener('dblclick', (e) => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = findNodeAt(w.x, w.y);
+  if (hit) {
+    selectedNodes.clear();
+    selectedNodes.add(hit.index);
+    document.getElementById('focusLevel').value = '2';
+    buildNodes();
+    jumpToState(hit.index);
+  }
+});
+
+canvasWrap.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = findNodeAt(w.x, w.y);
+  showContextMenu(e.clientX, e.clientY, hit);
+});
+
+function syncNodePositions() {
+  // Node positions are visual only; they re-layout on rebuild
+  // but we can store in a volatile map
+}
+
+function addTransition(src, dst) {
+  if (!model) return;
+  const st = model.States[src.index];
+  if (!st.Transitions) st.Transitions = [];
+  const newTr = {
+    StateIndex: dst.index,
+    Unk10: 0, Unk14: 0, Unk18: 0, Unk1C: 0,
+    Conditions: [],
+    StructAbb: { Unk00: 0, Unk01: 1, Unk02: 0, Unk03: 0, Type: 0,
+      BehaviorMatrixParam_f: 0, BehaviorMatrixParam_i: 0,
+      Unk08_int: 0, Unk08_f: 0, Unk0C: 0, Unk10_int: 0,
+      Unk14_int: 0, Unk18_int: 0, Unk1C_int: 0, Unk04: 0, Unk20_int: 0 }
+  };
+  st.Transitions.push(newTr);
+  pushHistory();
+  buildNodes();
+}
+
+// ======================================================================
+//  HELPERS for condition data display
+// ======================================================================
+const SIGS={"1":"i2,f2,i2","3":"i2","11":"i5","17":"i2","19":"i4","27":"f1,i1","28":"i2","29":"i2,f2","30":"i1","31":"i1","32":"i2","39":"i2,f1,i1","40":"i1","41":"i5","42":"i3,f1","43":"i3","44":"i1","48":"i7","53":"i1","57":"h4","68":"i1","73":"f1,i1","74":"i1","86":"i1","87":"i1","91":"i1"};
+
+// Condition ID descriptions from AC6 BHV debug + binary analysis
+const COND_INFO = {
+  "1": "输入检测 (Input) — OpCode=按键类型",
+  "3": "动画结束 (Anim Finish) — type=2=播放完毕",
+  "11": "子行为调用 (Sub-Behavior Call)",
+  "17": "能量检查 (Energy Check) — EN有无",
+  "19": "速度/落下/着地 (Speed/Fall/Landing)",
+  "22": "取消标志 (Cancel Flag)",
+  "24": "无条件 (Unconditional)",
+  "25": "能量空 (Energy Empty)",
+  "27": "等待时间 (Wait Duration)",
+  "28": "模式/状况 (Mode/Situation)",
+  "29": "Float条件 (Float Condition)",
+  "30": "弹药/插槽 (Ammo/Slot ID)",
+  "31": "副武器 (Sub-Weapon)",
+  "33": "方向/角度 (Direction/Angle)",
+  "39": "动作上下文 (Motion Context)",
+  "40": "目标锁定 (Target Lock)",
+  "41": "攻击上下文 (Attack Context)",
+  "42": "本体动作类型 (Body Action Type)",
+  "43": "特殊效果 (SpEffect) — ID+状态",
+  "44": "武器类别 (Weapon Category)",
+  "48": "行动类型 (Action Type) — act=值",
+  "57": "状态标志 (State Flag)",
+  "68": "特殊派生 (Special Relation)",
+  "73": "稀有条件 (Rare)",
+  "74": "武器索引 (Weapon Index)",
+  "86": "输入方向 (Input Direction)",
+  "87": "武器开关 (Weapon Toggle)",
+  "91": "开关状态 (Toggle State)",
+};
+
+// OpCode labels for Id=1
+const OPCODE_LABELS = {
+  "2":"Move", "3":"Jump", "6":"QuickBoost", "10":"Forward", "11":"Back",
+  "12":"Left", "13":"Right", "14":"Run", "15":"HoldJump", "17":"Sprint",
+  "35":"Dodge", "36":"WeaponSwitch", "48":"BoostSlide", "49":"QuickTurn",
+  "51":"Ride", "68":"?", "92":"?", "100":"Escape",
+  "140":"Derivative", "141":"AttackBtn", "146":"Kick", "147":"AssaultBoost",
+  "152":"TapLeft", "153":"TapRight"
+};
+
+// Action Type labels for Id=48
+const ACTIONTYPE_LABELS = {
+  "1":"General", "2":"Ground", "3":"Air", "8":"AssaultArmor",
+  "9":"PrimalArmor", "12":"BladeHoming", "28":"TerminalArmor",
+  "29":"Damage", "100":"WeaponSwitch", "102":"?", "103":"?"
+};
+
+// Speffect ID descriptions (known)
+const SPEFFECT_NAMES = {
+  "9010":"移动开始判定", "9060":"上升推进跳过1", "9061":"上升推进跳过2",
+  "9080":"悬浮二足", "9180":"推进强制禁止", "9270":"移动用",
+  "9290":"快速转身禁止", "9030":"冲刺转身可能",
+  "99999950":"NPAC判定用", "9997200":"AB入场效果",
+  "5040800":"Ash专用", "6019000":"最终Boss死亡"
+};
+
+function renderIntsHTML(hex, condId, ti, ci) {
+  const hexStr = (hex || '').replace(/\s+/g, '');
+  const sig = SIGS[String(condId)] || '';
+  // Parse signature into flat type list
+  const types = [];
+  if (sig) {
+    const parts = sig.split(',');
+    for (const p of parts) {
+      const m = p.match(/^([ifh])(\d+)$/);
+      if (m) { for (let j = 0; j < parseInt(m[2]); j++) types.push(m[1]); }
+    }
+  }
+  // Build values from hex data using signature types
+  const vals = [];
+  if (hexStr.length >= 2) {
+    let pos = 0;
+    for (let vi = 0; vi < types.length || pos < hexStr.length; vi++) {
+      const t = types[vi] || 'i';
+      if (t === 'h') {
+        // Half-word (int16): read 2 bytes
+        if (pos + 3 >= hexStr.length) break;
+        const lo = parseInt(hexStr.substr(pos, 2), 16) || 0;
+        const hi = parseInt(hexStr.substr(pos + 2, 2), 16) || 0;
+        const raw16 = lo | (hi << 8);
+        const v16 = raw16 > 0x7FFF ? raw16 - 0x10000 : raw16;
+        vals.push({ v: v16, t: 'h', raw: raw16 });
+        pos += 4;
+      } else {
+        // Full word (int32 or float32): read 4 bytes
+        if (pos + 7 >= hexStr.length) break;
+        const b0 = parseInt(hexStr.substr(pos, 2), 16) || 0;
+        const b1 = parseInt(hexStr.substr(pos + 2, 2), 16) || 0;
+        const b2 = parseInt(hexStr.substr(pos + 4, 2), 16) || 0;
+        const b3 = parseInt(hexStr.substr(pos + 6, 2), 16) || 0;
+        const raw = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+        if (t === 'f') {
+          const buf = new ArrayBuffer(4);
+          const dv = new DataView(buf);
+          dv.setUint8(0, b0); dv.setUint8(1, b1); dv.setUint8(2, b2); dv.setUint8(3, b3);
+          vals.push({ v: parseFloat(dv.getFloat32(0, true).toFixed(4)), t: 'f', raw });
+        } else {
+          vals.push({ v: raw > 0x7FFFFFFF ? raw - 0x100000000 : raw, t: 'i', raw });
+        }
+        pos += 8;
+      }
+    }
+  } else if (types.length > 0) {
+    for (let i = 0; i < types.length; i++) {
+      vals.push({ v: 0, t: types[i], raw: 0 });
+    }
+  } else {
+    vals.push({ v: 0, t: 'i', raw: 0 });
+  }
+  let h = '';
+  vals.forEach((sv, i) => {
+    const color = sv.t === 'f' ? 'var(--orange)' : sv.t === 'h' ? 'var(--green)' : 'var(--accent2)';
+    const w = sv.t === 'f' ? 70 : sv.t === 'h' ? 50 : 60;
+    h += `<input type="text" value="${sv.v}" data-tr="${ti}" data-cond="${ci}" data-intidx="${i}" data-inttype="${sv.t}" style="width:${w}px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:${color};font-size:10px;font-family:var(--mono);text-align:right">`;
+  });
+  return h;
+}
+
+// Render semantic description of a condition based on its Id and DataHex
+function describeCondition(cid, hex) {
+  const str = (hex || '').replace(/\s+/g, '');
+  if (str.length < 2) return '';
+  const bytes = [];
+  for (let i = 0; i < str.length; i += 2) {
+    bytes.push(parseInt(str.substr(i, 2), 16) || 0);
+  }
+  const u32 = (off) => (bytes[off]|0) + ((bytes[off+1]|0)<<8) + ((bytes[off+2]|0)<<16) + ((bytes[off+3]|0)<<24);
+  const i32 = (off) => { const v = u32(off); return v > 0x7FFFFFFF ? v - 0x100000000 : v; };
+  const f32 = (off) => { const buf = new ArrayBuffer(4); const dv = new DataView(buf);
+    dv.setUint8(0,bytes[off]||0); dv.setUint8(1,bytes[off+1]||0); dv.setUint8(2,bytes[off+2]||0); dv.setUint8(3,bytes[off+3]||0);
+    return parseFloat(dv.getFloat32(0,true).toFixed(4)); };
+  const u16 = (off) => ((bytes[off]|0) + ((bytes[off+1]|0)<<8));
+
+  const typeName = COND_INFO[String(cid)] || `Id=${cid}`;
+  const hexDump = bytes.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+
+  try {
+    // Id=1: 入力検出 (24 bytes)
+    if (cid === 1 && bytes.length >= 4) {
+      const op = i32(0);
+      const label = OPCODE_LABELS[String(op)] || `Unk${op}`;
+      const f1 = bytes.length >= 12 ? f32(8) : 0;
+      const f2 = bytes.length >= 16 ? f32(12) : 0;
+      const fl = bytes.length >= 20 ? i32(16) : 0;
+      return `<b>输入检测</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">OpCode=${op}</span> <b>${label}</b>` +
+        (f1 !== 0 || f2 !== 0 ? ` | float=(${f1}, ${f2})` : '') +
+        (fl !== 0 ? ` | flags=${fl}` : '');
+    }
+    // Id=3: 动画结束 (8 bytes)
+    if (cid === 3 && bytes.length >= 4) {
+      const t = i32(0);
+      const labels = {2:'攻击动画完成', 0:'待机', 1:'循环'};
+      return `<b>动画结束</b> [${hexDump}]<br>` +
+        `type=<span style="color:var(--orange)">${t}</span> ${labels[String(t)] || ''}`;
+    }
+    // Id=11: 子行为调用 (20 bytes)
+    if (cid === 11 && bytes.length >= 4) {
+      return `<b>子行为调用</b> [${hexDump}]<br>param=${i32(0)}`;
+    }
+    // Id=17: 能量检查 (8 bytes)
+    if (cid === 17) {
+      return `<b>能量检查</b> [${hexDump}]<br>` +
+        (i32(0) === 0 ? 'EN <span style="color:var(--orange)">空</span>' : `EN not empty (val=${i32(0)})`);
+    }
+    // Id=19: 速度/状态 (16 bytes)
+    if (cid === 19 && bytes.length >= 4) {
+      return `<b>速度/落下/着地</b> [${hexDump}]<br>` +
+        `type=${i32(0)}${bytes.length >= 12 ? ` | float=(${f32(8)}, ${f32(12)})` : ''}`;
+    }
+    // Id=22: 取消标志 (4 bytes)
+    if (cid === 22) {
+      const v = i32(0);
+      return `<b>取消标志</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">${v === 0 ? '取消允许' : '取消禁止(flag='+v+')'}</span>`;
+    }
+    // Id=24: 无条件
+    if (cid === 24) {
+      return '<b>无条件</b> — 始终成立';
+    }
+    // Id=25: 能量空
+    if (cid === 25) {
+      return `<b>能量空</b> [${hexDump}]`;
+    }
+    // Id=27: 等待时间 (8 bytes)
+    if (cid === 27 && bytes.length >= 4) {
+      const sec = f32(0);
+      return `<b>等待时间</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">${sec.toFixed(2)}秒</span> 经过`;
+    }
+    // Id=28: 模式 (8 bytes)
+    if (cid === 28 && bytes.length >= 4) {
+      const mode = i32(0);
+      return `<b>模式/状况</b> [${hexDump}]<br>` +
+        `mode=<span style="color:var(--orange)">${mode}</span>`;
+    }
+    // Id=29: Float条件 (16 bytes)
+    if (cid === 29 && bytes.length >= 8) {
+      return `<b>Float条件</b> [${hexDump}]<br>` +
+        `val1=<span style="color:var(--orange)">${i32(0)}</span>` +
+        (bytes.length >= 16 ? ` | f1=${f32(8)}, f2=${f32(12)}` : '');
+    }
+    // Id=30: 弹药/插槽 (4 bytes)
+    if (cid === 30) {
+      const slot = i32(0);
+      return `<b>弹药/插槽</b> [${hexDump}]<br>` +
+        `slot=<span style="color:var(--orange)">${slot}</span>` +
+        (slot === 10 ? ' (武器切换用)' : slot === 46 ? ' (特殊)' : slot === 57 ? ' (备用)' : '');
+    }
+    // Id=31: 副武器 (4 bytes)
+    if (cid === 31) {
+      return `<b>副武器</b> [${hexDump}]<br>val=${i32(0)}`;
+    }
+    // Id=33: 方向/角度 (8 bytes)
+    if (cid === 33 && bytes.length >= 4) {
+      return `<b>方向/角度</b> [${hexDump}]<br>` +
+        `angle=<span style="color:var(--orange)">${i32(0)}°</span>~${bytes.length >= 8 ? i32(4)+'°' : ''}`;
+    }
+    // Id=39: 动作上下文 (16 bytes)
+    if (cid === 39 && bytes.length >= 4) {
+      return `<b>动作上下文</b> [${hexDump}]<br>` +
+        `type=<span style="color:var(--orange)">${i32(0)}</span>` +
+        (bytes.length >= 12 ? ` | sub=${i32(4)}, float=${f32(8)}` : '');
+    }
+    // Id=40: 目标锁定 (4 bytes)
+    if (cid === 40) {
+      const v = i32(0);
+      const label = v === 1 ? '硬锁 (Hard Lock)' : v === 0 ? '新锁定 (New Lock)' : `Lock=${v}`;
+      return `<b>目标锁定</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">${label}</span>`;
+    }
+    // Id=41: 攻击上下文 (20 bytes)
+    if (cid === 41 && bytes.length >= 8) {
+      const v1 = i32(0), v2 = i32(4);
+      const ctxLabels = {
+        '8,0':'防御关闭', '8,1':'防御中',
+        '10,0':'武器切换上下文',
+        '21,0':'武器架起中', '23,3':'武器形式3',
+        '25,0':'攻击连击中', '26,0':'派生行动',
+        '31,0':'无武器',
+      };
+      const label = ctxLabels[`${v1},${v2}`] || `ctx=(${v1},${v2})`;
+      const extra = bytes.length >= 12 ? ` | pad=${bytes.slice(8,12).map(b=>b.toString(16)).join('')}` : '';
+      return `<b>攻击上下文</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">${label}</span>${extra}`;
+    }
+    // Id=42: 本体动作类型 (16 bytes)
+    if (cid === 42 && bytes.length >= 4) {
+      const t = i32(0);
+      const actionLabels = {
+        0:'待机', 1:'移动', 2:'奔跑', 3:'推进', 4:'跳跃',
+        5:'落下', 6:'推进上升', 7:'快速转身',
+      };
+      return `<b>本体动作类型</b> [${hexDump}]<br>` +
+        `type=<span style="color:var(--orange)">${t}</span> ${actionLabels[String(t)] || ''}` +
+        (bytes.length >= 12 ? ` | float=(${f32(8)}, ${f32(12)})` : '');
+    }
+    // Id=43: 特殊效果 (12 bytes)
+    if (cid === 43 && bytes.length >= 8) {
+      const flag = i32(0), speff = i32(4);
+      const state = bytes.length >= 12 ? i32(8) : 0;
+      const sname = SPEFFECT_NAMES[String(speff)] || '';
+      return `<b>特殊效果 (SpEffect)</b> [${hexDump}]<br>` +
+        `ID=<span style="color:var(--orange)">0x${speff.toString(16).toUpperCase()}</span>` +
+        (sname ? ` <b>${sname}</b>` : '') +
+        (flag ? ` | flag=${flag}` : '') +
+        (state ? ` | state=${state}` : '');
+    }
+    // Id=44: 武器类别 (4 bytes)
+    if (cid === 44) {
+      const v = i32(0);
+      const cat = {1:'主武器', 2:'副武器', 3:'特殊武器', 4:'副2', 6:'主2'}[v] || `cat=${v}`;
+      return `<b>武器类别</b> [${hexDump}]<br>` +
+        `<span style="color:var(--orange)">${cat}</span>`;
+    }
+    // Id=48: 行动类型 (28 bytes)
+    if (cid === 48 && bytes.length >= 28) {
+      const at = i32(24);
+      const label = ACTIONTYPE_LABELS[String(at)] || `${at}`;
+      const header = bytes.slice(0, 4).map(b=>b.toString(16).padStart(2,'0')).join(' ');
+      return `<b>行动类型分派</b> [${hexDump}]<br>` +
+        `act=<span style="color:var(--orange)">${at}</span> <b>${label}</b>` +
+        (header !== '06 00 00 00' ? ` | header=${header}` : '');
+    }
+    // Id=57: 状态标志 (8 bytes)
+    if (cid === 57 && bytes.length >= 4) {
+      const flag = u16(2);
+      return `<b>状态标志</b> [${hexDump}]<br>` +
+        `flag=<span style="color:var(--orange)">0x${flag.toString(16).toUpperCase()}</span>`;
+    }
+    // Id=68: 特殊派生 (4 bytes)
+    if (cid === 68) {
+      const v = i32(0);
+      return `<b>特殊派生</b> [${hexDump}]<br>` +
+        (v === 1 ? '<span style="color:var(--orange)">派生触发 ON</span>' : `val=${v}`);
+    }
+    // Id=73: 稀有条件 (8 bytes)
+    if (cid === 73 && bytes.length >= 4) {
+      return `<b>稀有条件</b> [${hexDump}]<br>f=${f32(0)}, i=${i32(4)}`;
+    }
+    // Id=74: 武器索引 (4 bytes)
+    if (cid === 74) {
+      const idx = i32(0);
+      return `<b>武器索引</b> [${hexDump}]<br>` +
+        `idx=<span style="color:var(--orange)">${idx}</span>`;
+    }
+    // Id=86: 输入方向 (4 bytes)
+    if (cid === 86) {
+      return `<b>输入方向</b> [${hexDump}]<br>dir=${i32(0)}`;
+    }
+    // Id=87: 武器开关 (4 bytes)
+    if (cid === 87) {
+      return `<b>武器开关</b> [${hexDump}]<br>val=${i32(0)}`;
+    }
+    // Id=91: 开关状态 (4 bytes)
+    if (cid === 91) {
+      return `<b>开关状态</b> [${hexDump}]<br>state=${i32(0)}`;
+    }
+  } catch(e) {}
+  // Fallback: show raw hex
+  return `<b>${typeName}</b> [${hexDump}]`;
+}
+
+function syncIntsToHex(overlay, ti, ci, st) {
+  const row = overlay.querySelector(`[data-byte-row="${ti}-${ci}"]`);
+  if (!row) return;
+  const hexBytes = [];
+  const inputs = [...row.querySelectorAll('input[data-intidx]')];
+  for (let i = 0; i < inputs.length; i++) {
+    const ii = inputs[i];
+    let val = parseFloat(ii.value) || 0;
+    const intType = ii.dataset.inttype || 'i';
+    if (intType === 'f') {
+      const buf = new ArrayBuffer(4);
+      const dv = new DataView(buf);
+      dv.setFloat32(0, val, true);
+      for (let b = 0; b < 4; b++) hexBytes.push(dv.getUint8(b).toString(16).padStart(2, '0').toUpperCase());
+    } else if (intType === 'h') {
+      // Half-word: pack two h-values into one 4-byte slot
+      let v = Math.trunc(val);
+      if (v < 0) v = v + 0x10000;
+      hexBytes.push((v & 0xFF).toString(16).padStart(2, '0').toUpperCase());
+      hexBytes.push(((v >> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase());
+      // Check if next is also h — if so, pack it into upper 2 bytes
+      const next = inputs[i + 1];
+      if (next && next.dataset.inttype === 'h') {
+        i++; // skip next since we're packing it
+        let v2 = Math.trunc(parseFloat(next.value) || 0);
+        if (v2 < 0) v2 = v2 + 0x10000;
+        hexBytes.push((v2 & 0xFF).toString(16).padStart(2, '0').toUpperCase());
+        hexBytes.push(((v2 >> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase());
+      } else {
+        // Pad upper 2 bytes with zeros
+        hexBytes.push('00', '00');
+      }
+    } else {
+      // int32
+      let v = Math.trunc(val);
+      if (v < 0) v = v + 0x100000000;
+      hexBytes.push((v & 0xFF).toString(16).padStart(2, '0').toUpperCase(),
+        ((v >> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase(),
+        ((v >> 16) & 0xFF).toString(16).padStart(2, '0').toUpperCase(),
+        ((v >> 24) & 0xFF).toString(16).padStart(2, '0').toUpperCase());
+    }
+  }
+  st.Transitions[ti].Conditions[ci].DataHex = hexBytes.join(' ');
+  const hexInp = overlay.querySelector(`input[data-tr="${ti}"][data-cond="${ci}"][data-key="DataHex"]`);
+  if (hexInp) hexInp.value = hexBytes.join(' ');
+}
+
+function updateIntsDisplay(overlay, ti, ci) {
+  const row = overlay.querySelector(`[data-byte-row="${ti}-${ci}"]`);
+  if (!row) return;
+  const hexInp = overlay.querySelector(`input[data-tr="${ti}"][data-cond="${ci}"][data-key="DataHex"]`);
+  const condId = overlay.querySelector(`input[data-tr="${ti}"][data-cond="${ci}"][data-key="Id"]`);
+  const hex = hexInp ? hexInp.value : '';
+  const cid = condId ? parseInt(condId.value) || 0 : 0;
+  row.innerHTML = `<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:9px;color:var(--text2);white-space:nowrap">Ints:</span>
+${renderIntsHTML(hex, cid, ti, ci)}`;
+  // Rebind int32 change events
+  row.querySelectorAll('input[data-intidx]').forEach(inp => {
+    const st = row.closest('.modal-overlay').__st;
+    inp.addEventListener('input', () => syncIntsToHex(row.closest('.modal-overlay'), ti, ci, st));
+  });
+}
+
+function bindConditionRowEvents(ti, ci, newRow) {
+  // Delete button
+  const delBtn = newRow.querySelector('[data-del-cond]');
+  if (delBtn) {
+    delBtn.onclick = (e) => {
+      e.preventDefault();
+      st.Transitions[ti].Conditions.splice(ci, 1);
+      const details = delBtn.closest('details');
+      if (details) {
+        const summary = details.querySelector('summary');
+        summary.textContent = `Conditions (${st.Transitions[ti].Conditions.length})`;
+      }
+      // Remove the condition row, hex row, and ints row
+      let el = delBtn.closest('div[style*="margin-bottom:3px"]');
+      if (el) {
+        const hexRow = el.nextElementSibling;
+        const intsRow = hexRow?.nextElementSibling;
+        el.remove();
+        if (hexRow?.querySelector('[data-key="DataHex"]')) hexRow.remove();
+        if (intsRow?.querySelector('[data-byte-row]')) intsRow.remove();
+      }
+    };
+  }
+  // Add int button
+  const addIntBtn = newRow.querySelector('[data-add-int]');
+  if (addIntBtn) {
+    addIntBtn.onclick = (e) => {
+      e.stopPropagation();
+      const cond = st.Transitions[ti].Conditions[ci];
+      const old = cond.DataHex || '';
+      cond.DataHex = old + (old ? ' ' : '') + '00 00 00 00';
+      const hexInp = overlay.querySelector(`input[data-tr="${ti}"][data-cond="${ci}"][data-key="DataHex"]`);
+      if (hexInp) hexInp.value = cond.DataHex;
+      updateIntsDisplay(overlay, ti, ci);
+    };
+  }
+}
+
+// ======================================================================
+//  CONTEXT MENU
+// ======================================================================
+function addNewState() {
+  if (!model) { toast(t('noData'), 'error'); return; }
+  const newSt = {
+    Index: model.States.length,
+    Unk00: 0, BoostParamSection: 0, StructBid: -1, Unk10: -1, Unk14: -1,
+    Unk18_A: 0, Unk18_B: 0, Unk1C: -65536, Unk20: -1, Unk24: "NaN", Unk28: "NaN", Unk2C: "NaN",
+    Unk30: -1, Unk34: -1, Unk38: 65535, Unk3C: 524288, Unk40: 1.0,
+    Unk44: -1.0, Unk48: -1.0,
+    RootmotionStatus: 1.0, Unk50: 0,
+    BodyPartControlA: 0, BodyPartControlB: 0, BodyPartControlC: 8, BodyPartControlD: 0,
+    Unk58: 0, Unk5C: 0, LeftHandAnimationId: 0, StructBsid2: 0,
+    UnkBsControlId_A: 0, UnkBsControlId_B: 0, WeaponAnimationCallingId: 0,
+    Unk6C: 0,    BladeHomingControl_A: 0, BladeHomingControl_B: 0, BladeHomingControl_C: 0, BladeHomingControl_D: 0,
+    Unk74: 0, Unk78: -1, Unk7C: 0, Unk80: 0, WeaponRailAnimationCallingId: -1,
+    Unk88: 0, Unk8C: 0, Unk90: -1, Unk94: 0, Unk98: 0, Unk9C: 0,
+    Transitions: [], DataHex: '', Offset04: 0, TransitionsOffset: 0, TransitionCount: 0
+  };
+  model.States.push(newSt);
+  pushHistory();
+  buildNodes();
+  toast(t('newStateMsg') + newSt.Index, 'success');
+}
+function showContextMenu(mx, my, nd) {
+  const menu = document.getElementById('ctx-menu');
+  menu.innerHTML = '';
+  menu.style.display = 'block';
+  menu.style.left = mx + 'px';
+  menu.style.top = my + 'px';
+
+  const add = (text, fn, disabled=false) => {
+    const div = document.createElement('div');
+    div.className = 'ctx-item' + (disabled ? ' ctx-disabled' : '');
+    div.textContent = text;
+    if (!disabled) div.onclick = () => { fn(); closeContextMenu(); };
+    menu.appendChild(div);
+  };
+  const sep = () => {
+    const div = document.createElement('div');
+    div.className = 'ctx-sep';
+    menu.appendChild(div);
+  };
+
+  if (selectedNodes.size > 1) {
+    add(t('dupNodes') + ' (' + selectedNodes.size + ')', duplicateSelected);
+    sep();
+  }
+
+  if (nd) {
+    add(t('dupNode'), () => duplicateNode(nd));
+    add(t('delState'), () => deleteNode(nd));
+    sep();
+    // Copy/paste properties
+    add(t('copyProps'), () => {
+      const {Transitions, DataHex, Offset04, TransitionsOffset, TransitionCount, Index, ...props} = nd.state;
+      clipboardProps = JSON.parse(JSON.stringify(props));
+      toast(t('copied') + 'S' + nd.index + ' 属性');
+    });
+    if (clipboardProps) {
+      add(t('pasteProps') + (selectedNodes.size > 0 ? ' (' + selectedNodes.size + '个)' : ''), () => {
+        const targets = selectedNodes.size > 0 ? [...selectedNodes].map(i => model.States[i]) : [nd.state];
+        for (const tgt of targets) {
+          Object.assign(tgt, JSON.parse(JSON.stringify(clipboardProps)));
+        }
+        pushHistory();
+        buildNodes();
+        toast(t('pastePropsDone') + ' ' + targets.length + ' 个状态', 'success');
+      });
+    }
+    sep();
+    const trCount = nd.state.Transitions?.length || 0;
+    if (trCount > 0) {
+      add(t('copyTrans') + trCount + t('copiedToClipboard'), () => {
+        clipboardTransitions = JSON.parse(JSON.stringify(nd.state.Transitions));
+        toast(t('copied') + trCount + t('copiedToClipboard'));
+      });
+    } else {
+      add(t('copyTransEmpty'), null, true);
+    }
+    if (clipboardTransitions.length > 0) {
+      add(t('pasteTrans') + clipboardTransitions.length + t('copiedToClipboard'), () => {
+        if (!nd.state.Transitions) nd.state.Transitions = [];
+        nd.state.Transitions.push(...JSON.parse(JSON.stringify(clipboardTransitions)));
+        buildNodes();
+      });
+    } else {
+      add(t('pasteTransEmpty'), null, true);
+    }
+    sep();
+    add(t('editProps'), () => openStateDetail(nd));
+  }
+
+  add(t('editMystery'), () => {
+    // Switch to State Action tab
+    document.querySelectorAll('#tab-bar .tab').forEach(t => t.classList.remove('active'));
+    const saTab = document.querySelector('#tab-bar [data-panel="stateaction-panel"]');
+    if (saTab) saTab.classList.add('active');
+    document.querySelectorAll('#panels .panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('stateaction-panel').classList.add('active');
+    buildStateActionTable();
+  });
+  sep();
+  add(t('syncDebug'), syncDebug);
+
+  // Close when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', closeContextMenu, { once: true });
+  }, 50);
+}
+
+function closeContextMenu() {
+  document.getElementById('ctx-menu').style.display = 'none';
+}
+
+// Copy selected transitions from modal
+function updateCopySelBtn(overlay) {
+  if (!overlay) return;
+  const checks = overlay.querySelectorAll('.tr-check:checked');
+  const btn = overlay.querySelector('#btnCopySelTr');
+  if (btn) {
+    btn.style.display = checks.length > 0 ? '' : 'none';
+    btn.textContent = t('copySelBtn') + ' (' + checks.length + ')';
+  }
+}
+
+function copySelectedTransitions(overlay) {
+  if (!overlay) return;
+  const checks = overlay.querySelectorAll('.tr-check:checked');
+  if (checks.length === 0) return;
+  const st = overlay.__st;
+  clipboardTransitions = [];
+  checks.forEach(cb => {
+    const ti = parseInt(cb.dataset.tr);
+    clipboardTransitions.push(JSON.parse(JSON.stringify(st.Transitions[ti])));
+  });
+  toast(t('copied') + clipboardTransitions.length + ' ' + t('copySelDone'), 'success');
+}
+
+// ======================================================================
+//  NODE OPERATIONS
+// ======================================================================
+function duplicateNode(nd) {
+  if (!model) return;
+  const clone = JSON.parse(JSON.stringify(nd.state));
+  clone.Index = model.States.length;
+  model.States.push(clone);
+  pushHistory();
+  buildNodes();
+}
+
+function duplicateSelected() {
+  if (!model) return;
+  const clones = [];
+  for (const idx of selectedNodes) {
+    clones.push(JSON.parse(JSON.stringify(model.States[idx])));
+  }
+  for (const c of clones) {
+    c.Index = model.States.length;
+    model.States.push(c);
+  }
+  pushHistory();
+  selectedNodes.clear();
+  buildNodes();
+}
+
+function deleteNode(nd) {
+  if (!model) return;
+  const label = debugStates[nd.index]?.StateName || ('S' + nd.index);
+  confirm(t('confirmDelete') + ' ' + label + ' ' + t('confirmDeleteMsg'), () => {
+    const delIdx = nd.index;
+    model.States.splice(delIdx, 1);
+    model.States.forEach((s, i) => s.Index = i);
+    // Fix cross-references
+    for (const st of model.States) {
+      if (!st.Transitions) continue;
+      st.Transitions = st.Transitions.filter(tr => tr.StateIndex !== delIdx);
+      for (const tr of st.Transitions) {
+        if (tr.StateIndex > delIdx) tr.StateIndex -= 1;
+      }
+    }
+    pushHistory();
+    buildNodes();
+  });
+}
+
+function openStateDetail(nd) {
+  const st = nd.state;
+  if (!st.Transitions) st.Transitions = [];
+  const allStates = model.States;
+  const structBs = model.StructBs || [];
+  const stName = nd.label || '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  let ignoreClose = false;
+  // Only close when clicking the dark background directly
+  overlay.addEventListener('click', (ev) => {
+    if (ignoreClose) return;
+    if (ev.target === overlay) overlay.remove();
+  });
+  // Helper to prevent close during rebuilds
+  overlay._preventClose = () => {
+    ignoreClose = true;
+    setTimeout(() => { ignoreClose = false; }, 100);
+  };
+
+  overlay.innerHTML = `
+<div class="modal" style="max-width:900px; max-height:90vh; overflow:auto">
+<h3>${t('stateEdit')} ${st.Index}</h3>
+
+<!-- STATE PROPERTIES (collapsed by default) -->
+<details style="margin-bottom:12px">
+<summary style="cursor:pointer;color:var(--accent);font-weight:600;padding:4px 0">${t('props')} (${st.Index})</summary>
+<div id="propsArea" style="margin-top:8px"></div>
+</details>
+
+<!-- TRANSITIONS -->
+<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+<strong style="color:var(--accent)">${t('transitions')} (${st.Transitions.length})</strong>
+<button class="tb-btn" id="btnAddTr" style="font-size:11px;padding:3px 8px">${t('addTrans')}</button>
+<button class="tb-btn" id="btnCopySelTr" data-i18n="copySelBtn" style="font-size:11px;padding:3px 8px;display:none" onclick="copySelectedTransitions(this.closest('.modal-overlay'))">📋 复制选中</button>
+</div>
+<div id="transitionsArea"></div>
+
+<div class="btn-row" style="margin-top:16px">
+<button class="tb-btn" data-i18n="cancel" onclick="this.closest('.modal-overlay').remove()">${t('cancel')}</button>
+<button class="tb-btn accent" data-i18n="apply" id="btnApplyAll">${t('apply')}</button>
+</div>
+</div>`;
+
+  document.body.appendChild(overlay);
+  overlay.__st = st;  // store reference for helpers
+
+  // ── Build properties ──
+  const propsArea = overlay.querySelector('#propsArea');
+  // Grouped fields for better organization
+  const propGroups = [
+    { name: t('grpBasic'), fields: ['Unk00','BoostParamSection','StructBid','Unk10','Unk14'] },
+    { name: t('grpAnimCtrl'), fields: ['Unk18_A','Unk18_B','Unk1C','Unk20','Unk30','Unk34'] },
+    { name: t('grpFloat'), fields: ['Unk24','Unk28','Unk2C','Unk40','Unk44','Unk48','RootmotionStatus'] },
+    { name: t('grpBody'), fields: ['Unk50','Unk74','BodyPartControlA','BodyPartControlB','BodyPartControlC','BodyPartControlD'] },
+    { name: t('grpAnimRef'), fields: ['Unk38','Unk3C','Unk58','Unk5C','LeftHandAnimationId','StructBsid2'] },
+    { name: t('grpWeapon'), fields: ['UnkBsControlId_A','UnkBsControlId_B','WeaponAnimationCallingId','WeaponRailAnimationCallingId','Unk6C','BladeHomingControl_A','BladeHomingControl_B','BladeHomingControl_C','BladeHomingControl_D'] },
+    { name: t('grpOther'), fields: ['Unk78','Unk7C','Unk80','Unk88','Unk8C','Unk90','Unk94','Unk98','Unk9C'] }
+  ];
+  const floatFields = ['Unk24','Unk28','Unk2C','Unk40','RootmotionStatus','Unk74'];
+  // Field type mapping — based on byte-level analysis of 393 basenormal states
+  const fieldTypes = {
+    // byte (unsigned 8-bit)
+    BodyPartControlA:'u8', BodyPartControlB:'u8', BodyPartControlC:'u8', BodyPartControlD:'u8',
+    BoostParamSection:'u8', BladeHomingControl_A:'u8', BladeHomingControl_B:'u8', BladeHomingControl_C:'u8', BladeHomingControl_D:'u8',
+    Unk58:'u8',  // byte0 has values {0,1,33,52,61,63}, bytes1-3 always 0
+    // sbyte (signed 8-bit)
+    Unk10:'i8', Unk20:'i8', Unk30:'i8', Unk34:'i8', Unk78:'i8', Unk90:'i8',
+    WeaponAnimationCallingId:'i32',  // 13 unique values across multiple bytes, not just i8
+    // ushort (unsigned 16-bit)
+    Unk00:'u16',
+    // short (signed 16-bit)
+    StructBid:'i16', WeaponRailAnimationCallingId:'i32',  // 10 unique values, not just i16
+    // float32
+    Unk24:'f32', Unk28:'f32', Unk2C:'f32', Unk40:'f32', Unk44:'f32', Unk48:'f32', RootmotionStatus:'f32',
+    // packed 2x int16 — hi16 and lo16 have independent meanings
+    Unk14:'p16', Unk38:'p16', Unk1C:'p16', Unk50:'p16', Unk3C:'p16', Unk88:'p16',
+    Unk74:'p16',  // byte0={0,46,51,54,56,57,110} × byte2={0,1,2,3} — two independent values
+    Unk5C:'p16',  // byte1={0,1} × byte2+byte3={0,1,2,3}×{0,1,2,3} — packed fields
+    // 4-bitfield flags — each byte independently {0,1}
+    Unk80:'bits4',  // byte1={0,1}, byte3={0,1} — 2 active flags
+    Unk94:'bits4',  // all 4 bytes independently toggle {0,1}
+    // int32 (default for everything else)
+    Unk18_A:'i32', Unk18_B:'i32',
+    Unk6C:'u8x4',  // 4 independent bytes — byte0/1/2/3 each have own meaning
+    Unk7C:'u8x4',  // byte1 has 4 unique values, rest are flags
+    LeftHandAnimationId:'i32', StructBsid2:'i32',
+    UnkBsControlId_A:'i32', UnkBsControlId_B:'i32',
+  };
+  const typeLabels = { u8:'u8', i8:'i8', u16:'u16', i16:'i16', i32:'i32', f32:'f32', p16:'p16' };
+  // Property descriptions from community research
+  const PROP_INFO = {
+    Unk00: '行为ID / Anim1 ID',
+    Unk14: '右臂动画相关 (Right Arm Animation) — bitmask',
+    Unk38: '身体动画过渡 (Body Anim Transition) — 65535=允许不被取消',
+    Unk6C: 'AB 目标偏移与序列 (Targeting Offset/Sequencing)',
+    Unk02: '(StructB) 助推器/移动配置 (Booster/Movement Profile)',
+    Unk50: '(StructB) 移动参数',
+    BladeHomingControl_A: '状态ID引用',
+    BladeHomingControl_B: '取消相关 — 58=禁止跳转',
+    BladeHomingControl_C: '额外参数',
+    BladeHomingControl_D: '额外参数',
+  };
+  let ph = '';
+  for (const grp of propGroups) {
+    ph += `<details open style="margin-bottom:6px"><summary style="cursor:pointer;color:var(--accent2);font-size:12px;font-weight:600;padding:2px 0">${grp.name} (${grp.fields.length})</summary><div style="margin-top:4px">`;
+    for (const f of grp.fields) {
+      let val = st[f] !== undefined ? st[f] : 0;
+      let displayVal = (val === 'NaN' || (typeof val === 'number' && isNaN(val))) ? '—' : val;
+      const ft = fieldTypes[f] || 'i32';
+      const typeHint = ft;
+      if (ft === 'p16') {
+        // Packed 2x int16: split into hi16 and lo16
+        const i32 = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+        const u32 = i32 >= 0 ? i32 : i32 + 0x100000000;
+        const lo = (u32 & 0xFFFF);
+        const hi = ((u32 >> 16) & 0xFFFF);
+        const slo = lo > 0x7FFF ? lo - 0x10000 : lo;
+        const shi = hi > 0x7FFF ? hi - 0x10000 : hi;
+        ph += `<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center">
+<label style="width:175px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f}">${f}</label>
+<input type="text" value="${shi}" data-field="${f}" data-p16part="hi" style="width:55px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--accent2);font-family:var(--mono);font-size:10px;text-align:right">
+<span style="font-size:9px;color:var(--text2)">:</span>
+<input type="text" value="${slo}" data-field="${f}" data-p16part="lo" style="width:55px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--green);font-family:var(--mono);font-size:10px;text-align:right">
+<span style="width:32px;font-size:9px;color:var(--text2);text-align:center;flex-shrink:0">p16</span>
+</div>`;
+      } else if (ft === 'u8x4') {
+        // 4 independent byte fields — show as 4 inputs + hex
+        const i32 = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+        const u32 = i32 >= 0 ? i32 : i32 + 0x100000000;
+        const b0 = u32 & 0xFF, b1 = (u32>>8) & 0xFF, b2 = (u32>>16) & 0xFF, b3 = (u32>>24) & 0xFF;
+        const h = u32.toString(16).toUpperCase().padStart(8, '0');
+        ph += '<div style="display:flex;gap:3px;margin-bottom:3px;align-items:center"><label style="width:175px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + f + '">' + f + '</label>';
+        [b0,b1,b2,b3].forEach((bv,bi) => {
+          ph += '<span style="font-size:8px;color:var(--text2)">B' + bi + '</span><input type="text" value="' + bv + '" data-field="' + f + '" data-byte="' + bi + '" style="width:30px;padding:1px 2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:9px;text-align:center">';
+        });
+        ph += '<span style="font-size:9px;color:var(--accent2);font-family:var(--mono);margin-left:4px">' + h + '</span></div>';
+      } else if (ft === 'bits4') {
+        const i32 = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+        const u32 = i32 >= 0 ? i32 : i32 + 0x100000000;
+        const b0 = u32 & 0xFF, b1 = (u32>>8) & 0xFF, b2 = (u32>>16) & 0xFF, b3 = (u32>>24) & 0xFF;
+        const h = u32.toString(16).toUpperCase().padStart(8, '0');
+        ph += '<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center"><label style="width:175px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + f + '">' + f + '</label>';
+        [b0,b1,b2,b3].forEach((bv,bi) => {
+          ph += '<label style="font-size:9px;color:var(--text2);margin-left:2px">B' + bi + '</label><input type="checkbox" data-field="' + f + '" data-bit="' + bi + '" ' + (bv?'checked':'') + ' style="width:14px;margin:0">';
+        });
+        ph += '<span style="font-size:9px;color:var(--accent2);font-family:var(--mono);margin-left:4px">' + h + '</span></div>';
+      } else if (ft === 'hex4') {
+        const i32v = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+        const u32 = i32v >= 0 ? i32v : i32v + 0x100000000;
+        const hex = u32.toString(16).toUpperCase().padStart(8, '0');
+        ph += '<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center">' +
+'<label style="width:175px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + f + '">' + f + '</label>' +
+'<input type="text" value="' + i32v + '" data-field="' + f + '" style="width:70px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:10px;text-align:right">' +
+'<span style="font-size:9px;color:var(--accent2);font-family:var(--mono)">' + hex + '</span>' +
+'</div>';
+      } else {
+        ph += `<div style="display:flex;gap:6px;margin-bottom:3px;align-items:center">
+<label style="width:175px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f}">${f}</label>
+<input type="text" value="${displayVal}" data-field="${f}" data-raw="${val}"
+style="flex:1;padding:2px 5px;border:1px solid var(--border);border-radius:3px;
+background:var(--bg);color:${displayVal==='—'?'var(--text2)':'var(--text)'};font-family:var(--mono);font-size:10px;${displayVal==='—'?'font-style:italic':''}">
+<span style="width:32px;font-size:9px;color:var(--text2);text-align:center;flex-shrink:0">${typeHint}</span>
+</div>`;
+      }
+    }
+    ph += '</div></details>';
+  }
+  // Add state Data (raw bytes) editing
+  const dataHex = st.DataHex || '';
+  const dataBytes = dataHex.split(/\s+/).filter(Boolean);
+  ph += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+<strong style="color:var(--orange);font-size:12px">${t('stateData')} (${dataBytes.length} ${t('bytes')})</strong>
+<div style="display:flex;gap:4px;margin-top:4px;align-items:center">
+<span style="font-size:10px;color:var(--text2);white-space:nowrap">Hex:</span>
+<input type="text" id="stateDataHex" value="${dataHex}" style="flex:1;padding:3px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--green);font-size:10px;font-family:var(--mono)">
+</div>
+<div style="display:flex;gap:4px;margin-top:4px;align-items:center;flex-wrap:wrap">
+<span style="font-size:10px;color:var(--text2);white-space:nowrap">Bytes:</span>
+${dataBytes.length === 0 ? '<span style="font-size:10px;color:var(--text2)">(空)</span>' : dataBytes.map((b,i) => `<input type="text" value="${b}" data-state-byte="${i}" style="width:34px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--green);font-size:10px;font-family:var(--mono);text-align:center">`).join('')}
+</div>
+${dataBytes.length >= 4 ? (() => {
+  // Parse int16 values from hex bytes
+  let int16vals = [];
+  for (let i = 0; i + 1 < dataBytes.length; i += 2) {
+    const b0 = parseInt(dataBytes[i], 16) || 0;
+    const b1 = parseInt(dataBytes[i+1], 16) || 0;
+    const val = (b1 << 8) | b0;
+    int16vals.push(val);
+  }
+  // Detect pattern type based on state name + data
+  const nm = (stName || '').toLowerCase();
+  const isDamage = nm.includes('ダメージ');
+  const isQB = nm.includes('クイックブースト');
+  const isBoost = nm.includes('ブースト') && !isQB;
+  const isMove = nm.includes('歩行') || nm.includes('走行') || nm.includes('ホバー');
+  const isJump = nm.includes('ジャンプ') || nm.includes('落下');
+  const isTurn = nm.includes('旋回') || nm.includes('ターン');
+  const isLand = nm.includes('着地');
+  const isBrake = nm.includes('ブレーキ');
+  const isDeath = nm.includes('死亡');
+  const isSlope = nm.includes('斜面');
+  const isHover = nm.includes('ホバー');
+  
+  // Determine if this looks like 5-direction table
+  const hasStructRefs = int16vals.some(v => v > 0 && v < 256 && structBs && v < structBs.length);
+  const has256 = int16vals.includes(256);
+  
+  // Build labeled display
+  function fmtVal(v) {
+    if (v === 0) return '<span style="color:var(--text2);font-size:10px">0</span>';
+    if (v === 256) return '<span style="color:var(--orange);font-size:10px">256(默认)</span>';
+    if (v === 257) return '<span style="color:var(--orange);font-size:10px">257(防御)</span>';
+    if (v === 516) return '<span style="color:var(--text2);font-size:10px">516</span>';
+    if (v === 512) return '<span style="color:var(--text2);font-size:10px">512</span>';
+    if (v > 0 && v < structBs.length && structBs && v < structBs.length) {
+      const animId = structBs[v]?.Unk00;
+      return `<span style="color:var(--cyan);font-size:10px;cursor:help" title="StructB[${v}] Anim1=${animId}">${v}</span>`;
+    }
+    return `<span style="color:var(--accent2);font-size:10px">${v}</span>`;
+  }
+  
+  let lines = [];
+  
+  // Check for all-zero or near-zero (simple state)
+  const nonZero = int16vals.filter(v => v !== 0);
+  if (nonZero.length === 0) {
+    return '<div style="margin-top:4px"><span style="font-size:10px;color:var(--text2)">→ 全零 (简单状态, 只用StructBid)</span></div>';
+  }
+  
+  // 5-direction table pattern (first 5 int16s are struct refs)
+  const first5 = int16vals.slice(0, 5);
+  const first5clean = first5.filter(v => v >= 0 && v < 474);
+  if (first5clean.length >= 3 && first5clean.every(v => v >= 0 && v < 474)) {
+    const dirLabels = ['前', '左', '右', '後', '中立'];
+    let dirLine = '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
+    dirLine += '<span style="font-size:9px;color:var(--text2)">方向:</span>';
+    first5.forEach((v, i) => {
+      if (v > 0 || i === 0) {
+        const label = dirLabels[i] || `[${i}]`;
+        const color = v === 256 ? 'var(--orange)' : (v === 0 ? 'var(--text2)' : 'var(--cyan)');
+        const animName = (v > 0 && v < 474 && structBs && v < structBs.length) ? `→${structBs[v]?.Unk00||'?'}` : '';
+        dirLine += `<span style="font-size:10px;color:${color};font-family:var(--mono);margin-right:6px" title="StructB[${v}]${animName}">${label}=${v}${animName}</span>`;
+      }
+    });
+    dirLine += '</div>';
+    lines.push(dirLine);
+  }
+  
+  // Damage chains (sequential damage anims)
+  if (isDamage) {
+    let dmgLine = '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
+    dmgLine += '<span style="font-size:9px;color:var(--text2)">受击:</span>';
+    int16vals.forEach((v, i) => {
+      if (v !== 0) {
+        dmgLine += fmtVal(v);
+        dmgLine += `<span style="font-size:8px;color:var(--text2);margin-right:4px">[${i}]</span>`;
+      }
+    });
+    dmgLine += '</div>';
+    lines.push(dmgLine);
+    
+    // Check for damage intensity pattern
+    const uniqueHits = [...new Set(int16vals.filter(v => v > 0 && v < 474))];
+    if (uniqueHits.length > 1) {
+      let seqLine = '<div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap">';
+      seqLine += '<span style="font-size:9px;color:var(--text2)">强度链:</span>';
+      uniqueHits.forEach(v => {
+        if (v > 0 && v < structBs.length && structBs && v < structBs.length) {
+          seqLine += fmtVal(v);
+          seqLine += `<span style="font-size:9px;color:var(--text2);margin-right:4px">(${structBs[v]?.Unk00||'?'})</span>`;
+        }
+      });
+      seqLine += '</div>';
+      lines.push(seqLine);
+    }
+  }
+  
+  // Float parameters (after the direction table)
+  if (int16vals.length > 5) {
+    let floatLine = '<div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap">';
+    floatLine += '<span style="font-size:9px;color:var(--text2)">参数:</span>';
+    for (let i = 5; i < int16vals.length - 1; i += 2) {
+      if (i+1 < int16vals.length) {
+        const low = int16vals[i];
+        const high = int16vals[i+1];
+        const u32 = (high << 16) | (low & 0xFFFF);
+        if (u32 !== 0) {
+          const f32 = new Float32Array(new Uint32Array([u32]).buffer)[0];
+          floatLine += `<span style="font-size:10px;color:var(--accent2);font-family:var(--mono);margin-right:6px">${f32.toFixed(2)}</span>`;
+        }
+      }
+    }
+    floatLine += '</div>';
+    lines.push(floatLine);
+  }
+  
+  return `<div style="margin-top:4px">${lines.join('')}</div>`;
+})() : ''}
+</div></div>`;
+  propsArea.innerHTML = ph;
+
+  // ── Build transitions ──
+  function buildTransitions() {
+    overlay._preventClose();
+    const area = overlay.querySelector('#transitionsArea');
+    let h = '';
+    if (!st.Transitions || st.Transitions.length === 0) {
+      h = `<div style="color:var(--text2);padding:12px;font-size:13px">${t('noTrans')}</div>`;
+    } else {
+      st.Transitions.forEach((tr, ti) => {
+        if (!tr.StructAbb) tr.StructAbb = { Unk00:0,Unk01:1,Unk02:0,Unk03:0,Type:0,BehaviorMatrixParam_f:0,BehaviorMatrixParam_i:0,Unk08_int:0,Unk08_f:0,Unk0C:0,Unk10_int:0,Unk14_int:0,Unk18_int:0,Unk1C_int:0,Unk04:0,Unk20_int:0 };
+        if (!tr.Conditions) tr.Conditions = [];
+        const tgtIdx = tr.StateIndex || 0;
+        const opts = allStates.map(s => `<option value="${s.Index}" ${s.Index===tgtIdx?'selected':''}>S${s.Index}</option>`).join('');
+        const tgtName = debugStates[tgtIdx]?.StateName || '';
+        h += `<div style="background:var(--surface2);border-radius:6px;padding:10px;margin-bottom:8px;border:1px solid var(--border);display:flex;gap:8px;align-items:flex-start">
+<span style="flex-shrink:0;padding-top:3px"><input type="checkbox" class="tr-check" data-tr="${ti}" onchange="updateCopySelBtn(this.closest('.modal-overlay'))"></span>
+<div style="flex:1">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+<span style="color:var(--orange);font-weight:600">→</span>
+<select data-tr="${ti}" data-key="StateIndex" style="padding:3px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:12px">${opts}</select>
+${tgtName ? `<span style="color:var(--green);font-size:11px">${tgtName}</span>` : ''}
+<span style="color:var(--text2);font-size:11px;margin-left:8px">Unk10:</span>
+<input type="text" value="${tr.Unk10??0}" data-tr="${ti}" data-key="Unk10" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:11px;font-family:var(--mono)">
+<span style="color:var(--text2);font-size:11px">Unk14:</span>
+<input type="text" value="${tr.Unk14??0}" data-tr="${ti}" data-key="Unk14" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:11px;font-family:var(--mono)">
+<button class="tb-btn" data-del-tr="${ti}" style="margin-left:auto;font-size:11px;padding:2px 8px;background:var(--red);color:#1e1e2e;border:none">🗑</button>
+</div>`;
+
+        // Conditions
+        h += `<details style="margin-top:4px"><summary style="cursor:pointer;color:var(--accent2);font-size:11px">${t('conditions')} (${tr.Conditions.length})</summary><div style="margin-top:4px">`;
+        tr.Conditions.forEach((cond, ci) => {
+          // Ensure DataHex is populated from Data if needed
+          if ((!cond.DataHex || cond.DataHex === '') && cond.Data && cond.Data.length > 0) {
+            cond.DataHex = cond.Data.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+          }
+          if (cond.DataHex === undefined) cond.DataHex = '';
+          h += `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
+<b style="color:var(--accent);font-size:10px;width:18px">#${ci}</b>
+Id:<input type="text" value="${cond.Id??0}" data-tr="${ti}" data-cond="${ci}" data-key="Id" title="${COND_INFO[String(cond.Id??0)]||''}" style="width:28px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=Or">Or:</span><input type="text" value="${cond.Unk01??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk01" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+U2:<input type="text" value="${cond.Unk02??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk02" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=And">And:</span><input type="text" value="${cond.Unk03??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk03" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=Inverted">Inv:</span><input type="text" value="${cond.Unk08??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk08" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+U9:<input type="text" value="${cond.Unk09??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk09" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UA:<input type="text" value="${cond.Unk0A??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk0A" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UB:<input type="text" value="${cond.Unk0B??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk0B" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UC:<input type="text" value="${cond.Unk0C??0}" data-tr="${ti}" data-cond="${ci}" data-key="Unk0C" style="width:60px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span style="font-size:9px;color:var(--text2)">Expr:</span><input type="text" value="${cond.Expression || ''}" data-tr="${ti}" data-cond="${ci}" data-key="Expression" placeholder="expr" style="flex:1;min-width:60px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--accent2);font-size:10px;font-family:var(--mono)">
+<button class="tb-btn" data-del-cond="${ti}-${ci}" style="font-size:10px;padding:1px 6px;background:var(--red);color:#1e1e2e;border:none">✕</button>
+</div>
+<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
+<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:9px;color:var(--text2);white-space:nowrap">Hex:</span><input type="text" value="${cond.DataHex || ''}" data-tr="${ti}" data-cond="${ci}" data-key="DataHex" placeholder="hex" style="flex:1;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--green);font-size:10px;font-family:var(--mono)">
+</div>
+<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;padding:3px 6px;background:var(--surface2);border-radius:4px;border:1px solid var(--border)">
+<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:11px;color:var(--green);font-family:var(--mono)">${describeCondition(cond.Id || 0, cond.DataHex || '')}</span>
+</div>
+<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px" data-byte-row="${ti}-${ci}">
+<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:9px;color:var(--text2);white-space:nowrap">Ints:</span>
+${renderIntsHTML(cond.DataHex || '', cond.Id || 0, ti, ci)}
+<span style="font-size:9px;color:var(--text2);margin-left:4px">${describeCondition(cond.Id || 0, cond.DataHex || '')}</span>
+<button class="tb-btn" data-add-int="${ti}-${ci}" data-i18n="addInt" style="font-size:10px;padding:1px 6px;margin-left:4px">+int</button>
+</div>`;
+        });
+        h += `<button class="tb-btn" data-add-cond="${ti}" style="font-size:10px;padding:2px 8px;margin-top:4px">${t('addCond')}</button></div></details>`;
+
+        // StructABB
+        const abb = tr.StructAbb;
+        h += `<details style="margin-top:4px"><summary style="cursor:pointer;color:var(--orange);font-size:11px">${t('structAbb')} (Type=${abb.Type}, Unk01=${abb.Unk01})</summary><div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">`;
+        const abbFields = ['Unk00','Unk01','Unk02','Unk03','Type','BehaviorMatrixParam_f','BehaviorMatrixParam_i','Unk08_int','Unk08_f','Unk0C','Unk10_int','Unk14_int','Unk18_int','Unk1C_int','Unk04','Unk20_int'];
+        abbFields.forEach(ak => {
+          h += `<div style="display:flex;align-items:center;gap:2px"><span style="font-size:9px;color:var(--text2);width:100px;text-align:right">${ak}</span><input type="text" value="${abb[ak]??0}" data-tr="${ti}" data-abb="${ak}" style="width:${ak.includes('float')?60:50}px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)"></div>`;
+        });
+        h += `</div></details>`;
+
+        h += '</div></div>';
+      });
+    }
+    area.innerHTML = h;
+    updateCopySelBtn(overlay);
+    bindTransitionEvents();
+    // Auto-sync any pre-populated Ints to Hex
+    overlay.querySelectorAll('input[data-intidx]').forEach(inp => {
+      if (!inp.dataset.bound) {
+        inp.dataset.bound = '1';
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+
+  function bindTransitionEvents() {
+    // Stop all button clicks from closing the modal
+    overlay.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', e => e.stopPropagation());
+    });
+
+    // Delete transition
+    overlay.querySelectorAll('[data-del-tr]').forEach(btn => {
+      btn.onclick = () => {
+        const ti = parseInt(btn.dataset.delTr);
+        st.Transitions.splice(ti, 1);
+        setTimeout(() => buildTransitions(), 0);
+      };
+    });
+    // Add transition
+    overlay.querySelector('#btnAddTr').onclick = () => {
+      st.Transitions.push({
+        StateIndex: 0, Unk10:0, Unk14:0, Unk18:0, Unk1C:0, Conditions: [],
+        StructAbb: { Unk00:0,Unk01:1,Unk02:0,Unk03:0,Type:0,BehaviorMatrixParam_f:0,BehaviorMatrixParam_i:0,Unk08_int:0,Unk08_f:0,Unk0C:0,Unk10_int:0,Unk14_int:0,Unk18_int:0,Unk1C_int:0,Unk04:0,Unk20_int:0 }
+      });
+      setTimeout(() => buildTransitions(), 0);
+    };
+    // Delete condition (inline removal)
+    overlay.querySelectorAll('[data-del-cond]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const [ti, ci] = btn.dataset.delCond.split('-').map(Number);
+        st.Transitions[ti].Conditions.splice(ci, 1);
+        const details = btn.closest('details');
+        if (details) {
+          const summary = details.querySelector('summary');
+          const count = st.Transitions[ti].Conditions.length;
+          summary.textContent = `${t('conditions')} (${count})`;
+        }
+        btn.closest('div[style*="margin-bottom:3px"]')?.remove();
+      };
+    });
+    // Add condition (append inline HTML, no rebuild)
+    overlay.querySelectorAll('[data-add-cond]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const ti = parseInt(btn.dataset.addCond);
+        const ci = st.Transitions[ti].Conditions.length;
+        st.Transitions[ti].Conditions.push({
+          Id:0, Unk01:0, Unk02:0, Unk03:0, Expression:'', Unk08:0, Unk09:0, Unk0A:0, Unk0B:0, Unk0C:0, DataHex:''
+        });
+        // Append new condition row before the + 条件 button
+        const newRow = document.createElement('div');
+        newRow.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:3px;flex-wrap:wrap';
+        newRow.innerHTML = `<b style="color:var(--accent);font-size:10px;width:18px">#${ci}</b>
+Id:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Id" title="Cond ID" style="width:28px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=Or">Or:</span><input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk01" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+U2:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk02" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=And">And:</span><input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk03" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span title="1=Inverted">Inv:</span><input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk08" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+U9:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk09" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UA:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk0A" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UB:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk0B" style="width:24px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+UC:<input type="text" value="0" data-tr="${ti}" data-cond="${ci}" data-key="Unk0C" style="width:60px;padding:2px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-size:10px;font-family:var(--mono)">
+<span style="font-size:9px;color:var(--text2)">Expr:</span><input type="text" value="" data-tr="${ti}" data-cond="${ci}" data-key="Expression" placeholder="expr" style="flex:1;min-width:60px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--accent2);font-size:10px;font-family:var(--mono)">
+<button class="tb-btn" data-del-cond="${ti}-${ci}" style="font-size:10px;padding:1px 6px;background:var(--red);color:#1e1e2e;border:none">✕</button>
+<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
+<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:9px;color:var(--text2);white-space:nowrap">Hex:</span><input type="text" value="" data-tr="${ti}" data-cond="${ci}" data-key="DataHex" placeholder="hex" style="flex:1;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--green);font-size:10px;font-family:var(--mono)">
+</div>
+<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px" data-byte-row="${ti}-${ci}">
+<b style="color:var(--accent);font-size:10px;width:18px"></b>
+<span style="font-size:9px;color:var(--text2);white-space:nowrap">Ints:</span>
+${renderIntsHTML('', 0, ti, ci)}
+<button class="tb-btn" data-add-int="${ti}-${ci}" data-i18n="addInt" style="font-size:10px;padding:1px 6px;margin-left:4px">+int</button>
+</div>`;
+        btn.before(newRow);
+        // Update condition count in summary
+        const details = btn.closest('details');
+        if (details) {
+          const summary = details.querySelector('summary');
+          summary.textContent = `Conditions (${st.Transitions[ti].Conditions.length})`;
+        }
+        // Rebind events for the new row
+        bindConditionRowEvents(ti, ci, newRow);
+      };
+    });
+    // Value change: update DataHex from typed values
+    overlay.querySelectorAll('input[data-intidx]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const ti = parseInt(inp.dataset.tr);
+        const ci = parseInt(inp.dataset.cond);
+        syncIntsToHex(overlay, ti, ci, st);
+      });
+    });
+
+    // Add int slot (inline update, no full rebuild)
+    overlay.querySelectorAll('[data-add-int]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        try {
+          const [ti, ci] = btn.dataset.addInt.split('-').map(Number);
+          const cond = st.Transitions[ti].Conditions[ci];
+          const old = cond.DataHex || '';
+          cond.DataHex = old + (old ? ' ' : '') + '00 00 00 00';
+          // Update hex input
+          const hexInp = overlay.querySelector(`input[data-tr="${ti}"][data-cond="${ci}"][data-key="DataHex"]`);
+          if (hexInp) hexInp.value = cond.DataHex;
+          // Update ints display inline
+          updateIntsDisplay(overlay, ti, ci);
+        } catch(e) { console.error('add-int error:', e); }
+      };
+    });
+    overlay.querySelectorAll('input[data-key="DataHex"]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const ti = parseInt(inp.dataset.tr);
+        const ci = parseInt(inp.dataset.cond);
+        st.Transitions[ti].Conditions[ci].DataHex = inp.value;
+        updateIntsDisplay(overlay, ti, ci);
+      });
+    });
+  }
+
+  buildTransitions();
+
+  // Apply button
+  overlay.querySelector('#btnApplyAll').onclick = () => {
+    // Apply properties
+    // Handle p16 packed fields first
+    const doneP16 = new Set();
+    overlay.querySelectorAll('#propsArea input[data-p16part]').forEach(inp => {
+      const f = inp.dataset.field;
+      if (doneP16.has(f)) return;
+      const hiInp = overlay.querySelector(`#propsArea input[data-field="${f}"][data-p16part="hi"]`);
+      const loInp = overlay.querySelector(`#propsArea input[data-field="${f}"][data-p16part="lo"]`);
+      if (!hiInp || !loInp) return;
+      let hi = parseInt(hiInp.value) || 0;
+      let lo = parseInt(loInp.value) || 0;
+      if (hi < 0) hi = hi + 0x10000;
+      if (lo < 0) lo = lo + 0x10000;
+      const u32 = (lo & 0xFFFF) | ((hi & 0xFFFF) << 16);
+      st[f] = u32 > 0x7FFFFFFF ? u32 - 0x100000000 : u32;
+      doneP16.add(f);
+    });
+    // Apply bits4 fields (checkboxes → rebuild u32)
+    const bitsDone = new Set();
+    overlay.querySelectorAll('#propsArea input[data-bit]').forEach(cb => {
+      const f = cb.dataset.field;
+      if (bitsDone.has(f)) return;
+      bitsDone.add(f);
+      let u32 = 0;
+      overlay.querySelectorAll('#propsArea input[data-field="' + f + '"][data-bit]').forEach(bc => {
+        if (bc.checked) u32 |= (0xFF << (parseInt(bc.dataset.bit) * 8));
+      });
+      st[f] = u32 > 0x7FFFFFFF ? u32 - 0x100000000 : u32;
+    });
+    // Apply u8x4 fields (4 byte inputs → rebuild u32)
+    const bytesDone = new Set();
+    overlay.querySelectorAll('#propsArea input[data-byte]').forEach(inp => {
+      const f = inp.dataset.field;
+      if (bytesDone.has(f)) return;
+      bytesDone.add(f);
+      let u32 = 0;
+      overlay.querySelectorAll('#propsArea input[data-field="' + f + '"][data-byte]').forEach(bi => {
+        const bv = Math.max(0, Math.min(255, parseInt(bi.value) || 0));
+        u32 |= (bv << (parseInt(bi.dataset.byte) * 8));
+      });
+      st[f] = u32 > 0x7FFFFFFF ? u32 - 0x100000000 : u32;
+    });
+    // Apply regular properties (skip p16/bits4/u8x4 fields)
+    overlay.querySelectorAll('#propsArea input[data-field]:not([data-p16part]):not([data-bit]):not([data-byte])').forEach(inp => {
+      const f = inp.dataset.field;
+      const v = inp.value === '—' ? 'NaN' : inp.value;
+      const ft = fieldTypes[f] || 'i32';
+      if (ft === 'f32') {
+        st[f] = v === 'NaN' ? 'NaN' : (parseFloat(v) || 0);
+      } else if (ft === 'u8') {
+        st[f] = Math.max(0, Math.min(255, parseInt(v) || 0));
+      } else if (ft === 'i8') {
+        st[f] = Math.max(-128, Math.min(127, parseInt(v) || 0));
+      } else if (ft === 'u16') {
+        st[f] = Math.max(0, Math.min(65535, parseInt(v) || 0));
+      } else if (ft === 'i16') {
+        st[f] = Math.max(-32768, Math.min(32767, parseInt(v) || 0));
+      } else if (ft === 'hex4') {
+        st[f] = parseInt(v) || 0;  // raw int32
+      } else {
+        st[f] = parseInt(v) || 0;
+      }
+    });
+    // Apply state Data bytes
+    const byteInputs = overlay.querySelectorAll('#propsArea input[data-state-byte]');
+    if (byteInputs.length > 0) {
+      const bytes = [];
+      byteInputs.forEach(bi => {
+        const v = bi.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 2).padStart(2, '0').toUpperCase();
+        bi.value = v;
+        bytes.push(v || '00');
+      });
+      st.DataHex = bytes.join(' ');
+    }
+    // Apply state Data hex
+    const hexInp = overlay.querySelector('#stateDataHex');
+    if (hexInp) {
+      st.DataHex = hexInp.value;
+    }
+    // Apply transition select changes
+    overlay.querySelectorAll('select[data-tr]').forEach(sel => {
+      const ti = parseInt(sel.dataset.tr);
+      st.Transitions[ti].StateIndex = parseInt(sel.value) || 0;
+    });
+    // Apply transition input changes
+    overlay.querySelectorAll('input[data-tr][data-key]').forEach(inp => {
+      const ti = parseInt(inp.dataset.tr);
+      const key = inp.dataset.key;
+      st.Transitions[ti][key] = parseInt(inp.value) || 0;
+    });
+    // Apply condition inputs
+    overlay.querySelectorAll('input[data-tr][data-cond][data-key]').forEach(inp => {
+      const ti = parseInt(inp.dataset.tr);
+      const ci = parseInt(inp.dataset.cond);
+      const key = inp.dataset.key;
+      const val = inp.value;
+      if (key === 'Expression' || key === 'DataHex') {
+        st.Transitions[ti].Conditions[ci][key] = val;
+      } else {
+        st.Transitions[ti].Conditions[ci][key] = parseInt(val) || 0;
+      }
+    });
+    // Apply StructABB inputs
+    overlay.querySelectorAll('input[data-tr][data-abb]').forEach(inp => {
+      const ti = parseInt(inp.dataset.tr);
+      const ak = inp.dataset.abb;
+      const val = inp.value;
+      const isFloat = ak.includes('float');
+      st.Transitions[ti].StructAbb[ak] = isFloat ? (parseFloat(val) || 0) : (parseInt(val) || 0);
+    });
+    overlay.remove();
+    pushHistory();
+    buildNodes();
+    toast(t('saved') + st.Index, 'success');
+  };
+}
+
+// ======================================================================
+//  MYSTERY BLOCK MODAL
+// ======================================================================
+function showMysteryModal() {
+  if (!model) return;
+  document.getElementById('mysteryModalTitle').textContent = t('editMystery');
+  const hex = model.Header?.MysteryBlockHex || '';
+  const bytes = hexToBytes(hex);
+  const shorts = [];
+  for (let i = 0; i < bytes.length; i += 2) {
+    const val = (bytes[i] | (bytes[i + 1] << 8));
+    shorts.push(val > 0x7FFF ? val - 0x10000 : val);
+  }
+  document.getElementById('mysteryText').value = shorts.join(', ');
+  document.getElementById('mysteryModal').style.display = 'flex';
+}
+
+function closeMysteryModal() {
+  document.getElementById('mysteryModal').style.display = 'none';
+}
+
+function applyMystery() {
+  if (!model) return;
+  const parts = document.getElementById('mysteryText').value.split(/[,;\s]+/).filter(Boolean);
+  const newBytes = [];
+  for (const p of parts) {
+    const v = parseInt(p);
+    if (isNaN(v)) { toast(`"${p}" 不是有效的 short`, 'error'); return; }
+    const sv = v & 0xFFFF;
+    newBytes.push(sv & 0xFF, (sv >> 8) & 0xFF);
+  }
+  const hex = newBytes.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  model.Header.MysteryBlockHex = hex;
+  toast(t('mysteryUpdated'), 'success');
+  closeMysteryModal();
+}
+
+// ======================================================================
+//  STATE ACTION BLOCK TABLE
+// ======================================================================
+// Known field labels for State Action Block (based on community research)
+const SA_LABELS = {
+  0: '[0] AttackStateID (武器编号 / 文件号码)',
+  1: '[1] WeaponSwapNode (切换完成返回状态)',
+  2: '[2] (武器=无效 / basenormal=?)',
+  3: '[3] 武器架设入口 → 装备/架起武器时触发 (对应 S34 初始化路由)',
+  4: '[4] 武器取消/终端入口 → 收纳/取消切换时触发 (对应 S40 终端路由)',
+  5: '[5] 攻击/切换主枢纽 → 攻击+切换总入口 (对应 S32 主枢纽)',
+  6: '[6] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  7: '[7] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  8: '[8] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  9: '[9] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  10: '[10] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  11: '[11] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  12: '[12] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  13: '[13] (basenormal 使用 / 武器文件无效 0xFFFF)',
+  14: '[14] 武器形态切换入口 → 战斗中切换形态时触发 (对应 S35 形态路由)',
+  15: '[15] (武器=无效 / basenormal=?)',
+};
+// Extended labels for weapon-type Mystery Block (W files)
+const SA_LABELS_W = {
+  0: 'AttackStateID (武器文件编号 / 映射到 basenormal 的 dispatch)',
+  1: 'WeaponSwapCompleteNode (武器切换完成后的返回状态)',
+  3: '武器架设入口 → 装备/架起武器时进入 (对应 S34)',
+  4: '武器终端/取消入口 → 收纳/取消切换时进入 (对应 S40)',
+  5: '攻击/切换主枢纽 → 正常攻击+武器切换总入口 (对应 S32)',
+  14: '武器形态切换入口 → 战斗中切换武器形态时进入 (对应 S35)',
+};
+// Extended labels for basenormal-type Mystery Block (0xE0 = 224 bytes = 112 shorts)
+// Index is SHORT index (not byte offset)
+const SA_LABELS_BN = {
+  // Damage entry group (byte offset 80-87 = short 40-43)
+  40: 'S377/S376 → ダメージ加算 (Damage Add)',
+  41: 'S377 → ダメージ (Damage)',
+  42: 'S376 → ダメージ加算 (Damage Add)',
+  43: 'S376 → ダメージ加算 (Damage Add)',
+  // Death entry group (byte offset 96-99 = short 48-49)
+  48: 'S378 → デス (Death)',
+  49: 'S152 → 地上デス (Ground Death)',
+  // Event entry group (byte offset 128-135 = short 64-67)
+  64: 'S379 → イベントアニメ (Event Anim)',
+  65: 'S95 → ドスン着地 (Hard Landing)',
+  66: 'S1 → 待機 (Idle)',
+  67: 'S222 → (未解明)',
+  // System group (byte offset 192-197 = short 96-98)
+  96: 'S319 → 投げ (Throw)',
+  98: 'S318 → 投げられ (Thrown)',
+  // Cancel/Respawn group (byte offset 204-213 = short 102-106)
+  102: 'S380 → キャンセル (Cancel)',
+  103: 'S320 → 共通遷移 (Common Transition)',
+  104: 'S381 → チェックポイント (Checkpoint Retry)',
+  105: 'S382 → 落下復帰 (Fall Return)',
+  106: 'S383 → マルチリスポン (Multi Respawn)',
+};
+
+function buildStateActionTable() {
+  const wrap = document.getElementById('stateaction-table-wrap');
+  if (!model || !model.Header) { wrap.innerHTML = ''; return; }
+  const hex = model.Header.MysteryBlockHex || '';
+  const bytes = hexToBytes(hex);
+  if (bytes.length === 0) { wrap.innerHTML = '<div style="padding:12px;color:var(--text2)">(empty)</div>'; return; }
+  
+  const shorts = [];
+  for (let i = 0; i + 1 < bytes.length; i += 2) {
+    shorts.push(bytes[i] | (bytes[i+1] << 8));
+  }
+  
+  document.getElementById('saCount').textContent = shorts.length + ' shorts';
+  
+  let h = '<table class="data-grid"><thead><tr><th>#</th><th>Hex</th><th>i16</th><th>含义 / 状态名</th></tr></thead><tbody>';
+  const isBN = model.file_type === 'BASENORMAL' || (bytes.length >= 0xE0);
+  shorts.forEach((v, i) => {
+    const sv = v > 0x7FFF ? v - 0x10000 : v;
+    const label = isBN ? (SA_LABELS_BN[i] || SA_LABELS[i] || '') : (SA_LABELS_W[i] || SA_LABELS[i] || '');
+    // If value is a valid state index, show the debug name
+    let stateName = '';
+    if (sv >= 0 && sv < 500 && debugStates && debugStates[sv]) {
+      const dn = debugStates[sv].StateName || '';
+      if (dn) stateName = dn;
+    }
+    const valDisplay = sv >= 0 && sv < 500 ? `S${sv}` : (sv === -1 ? '无效' : sv);
+    h += `<tr>
+<td>${i}</td>
+<td style="font-family:var(--mono);font-size:11px">${v.toString(16).padStart(4,'0').toUpperCase()}</td>
+<td><input type="text" value="${sv}" data-sa-idx="${i}" style="width:70px;text-align:center"></td>
+<td style="color:var(--accent2);font-size:10px">${label}${stateName ? `<br><span style="color:var(--green);font-size:10px">→ ${valDisplay}: ${stateName}</span>` : (sv >= 0 ? `<br><span style="color:var(--text2);font-size:9px">→ ${valDisplay}</span>` : '')}</td>
+</tr>`;
+  });
+  h += '</tbody></table>';
+  wrap.innerHTML = h;
+  
+  // Bind change events
+  wrap.querySelectorAll('input[data-sa-idx]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = parseInt(inp.dataset.saIdx);
+      let val = parseInt(inp.value) || 0;
+      // Convert signed i16 back to unsigned for storage
+      if (val < 0) val = val + 0x10000;
+      val = Math.max(0, Math.min(65535, val));
+      inp.value = val > 0x7FFF ? val - 0x10000 : val;  // show signed
+      // Update hex
+      const hex2 = model.Header.MysteryBlockHex || '';
+      const bytes2 = hexToBytes(hex2);
+      if (idx * 2 + 1 < bytes2.length) {
+        bytes2[idx * 2] = val & 0xFF;
+        bytes2[idx * 2 + 1] = (val >> 8) & 0xFF;
+        model.Header.MysteryBlockHex = bytes2.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+        // Update hex display
+        const row = inp.closest('tr');
+        row.querySelector('td:nth-child(2)').textContent = val.toString(16).padStart(4,'0').toUpperCase();
+      }
+    });
+  });
+}
+
+// Helper to convert hex string to byte array
+function hexToBytes(hex) {
+  return (hex || '').split(/\s+/).filter(Boolean).map(b => parseInt(b, 16) || 0);
+}
+
+
+// ======================================================================
+//  SYNC DEBUG
+// ======================================================================
+function syncDebug() {
+  if (!model || !debugStates.length) {
+    toast(t('needDebug'), 'error');
+    return;
+  }
+  for (const st of model.States) {
+    const dbg = debugStates[st.Index];
+    if (!dbg?.NextStates) continue;
+    st.Transitions = dbg.NextStates.map(ns => {
+      const digits = ns.NextStateName.replace(/\D/g, '');
+      const target = parseInt(digits) || 0;
+      return {
+        StateIndex: target,
+        Unk10: 0, Unk14: 0, Unk18: 0, Unk1C: 0,
+        Conditions: (ns.Conditions || []).map(expr => ({
+          Id: 0, Unk01: 0, Unk02: 0, Unk03: 0,
+          Expression: expr,
+          Unk08: 0, Unk09: 0, Unk0A: 0, Unk0B: 0, Unk0C: 0,
+          DataHex: ''
+        })),
+        StructAbb: { Unk00: 0, Unk01: 1, Unk02: 0, Unk03: 0, Type: 0,
+          BehaviorMatrixParam_f: 0, BehaviorMatrixParam_i: 0,
+          Unk08_int: 0, Unk08_f: 0, Unk0C: 0, Unk10_int: 0,
+          Unk14_int: 0, Unk18_int: 0, Unk1C_int: 0, Unk04: 0, Unk20_int: 0 }
+      };
+    });
+  }
+  buildNodes();
+  toast(t('syncDebugDone'), 'success');
+}
+
+// ======================================================================
+//  STRUCTB TABLE
+// ======================================================================
+function buildStructBTable() {
+  const wrap = document.getElementById('structb-table-wrap');
+  const list = model?.StructBs || [];
+  if (list.length === 0) { wrap.innerHTML = '<p style="padding:20px;color:var(--text2)">无 StructB 数据</p>'; return; }
+
+  const keys = Object.keys(list[0]);
+  const headerAlias = {
+    'Unk00': 'A1(Anim1)',
+    'Unk04': 'A2',
+    'Unk20': 'Speed',
+    'IsLooped': 'Loop',
+    'FacingLocked': 'Facing'
+  };
+  let html = '<table class="data-grid"><thead><tr><th>#</th>' +
+    keys.map(k => `<th>${headerAlias[k] || k}</th>`).join('') + '</tr></thead><tbody>';
+
+  list.forEach((sb, i) => {
+    html += '<tr><td style="color:var(--accent)">' + i + '</td>' +
+      keys.map(k => `<td><input type="text" value="${sb[k] ?? ''}" data-row="${i}" data-key="${k}"></td>`).join('') +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  // Bind change events
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const row = parseInt(inp.dataset.row);
+      const key = inp.dataset.key;
+      const val = inp.value;
+      const isFloat = key.includes('float') || key === 'Unk20' || key === 'Unk28' || key === 'Unk2C';
+      model.StructBs[row][key] = isFloat ? parseFloat(val) : parseInt(val);
+    });
+  });
+}
+
+// ======================================================================
+//  STRUCTC TABLE
+// ======================================================================
+function buildStructCTable() {
+  const wrap = document.getElementById('structc-table-wrap');
+  const list = model?.StructCs || [];
+  if (list.length === 0) { wrap.innerHTML = '<p style="padding:20px;color:var(--text2)">无 StructC 数据</p>'; return; }
+  const sizeC = list[0]?.length || 0;
+
+  let html = '<div style="overflow-x:auto;max-height:500px;overflow-y:auto">';
+  html += '<table class="data-grid" style="table-layout:fixed;border-collapse:collapse">';
+  html += '<thead><tr><th style="width:40px;position:sticky;left:0;background:var(--bg2);z-index:2">#</th>';
+  // 帧号标头
+  for (let i = 0; i < sizeC; i++) {
+    if (i % 10 === 0) {
+      html += `<th style="width:14px;font-size:9px;color:var(--text2);writing-mode:vertical-lr;font-weight:normal">${i}</th>`;
+    } else {
+      html += '<th style="width:14px;padding:0"></th>';
+    }
+  }
+  html += '</tr></thead><tbody>';
+
+  list.forEach((row, ri) => {
+    html += `<tr><td style="color:var(--accent);position:sticky;left:0;background:var(--bg2);z-index:1;font-size:11px">${ri}</td>`;
+    row.forEach((val, ci) => {
+      const on = val >= 128; // 0xFF = on
+      const bg = on ? 'var(--accent)' : 'var(--bg3)';
+      const title = `C[${ri}] 帧${ci}: ${on ? 'ON (0xFF)' : 'OFF (0x00)'}`;
+      html += `<td class="structc-cell" data-row="${ri}" data-col="${ci}" data-val="${val}"
+        style="width:14px;height:14px;padding:0;background:${bg};cursor:pointer"
+        title="${title}"></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  
+  // 添加帧数标尺和说明
+  html += '<div style="margin-top:8px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">';
+  html += '<span style="font-size:12px;color:var(--text2)">图例:</span>';
+  html += '<span style="display:inline-block;width:14px;height:14px;background:var(--accent);border-radius:2px"></span><span style="font-size:11px;color:var(--text2)"> ON</span>';
+  html += '<span style="display:inline-block;width:14px;height:14px;background:var(--bg3);border-radius:2px;margin-left:8px"></span><span style="font-size:11px;color:var(--text2)"> OFF</span>';
+  html += '<span style="font-size:11px;color:var(--text2);margin-left:8px">点击切换 ON/OFF</span>';
+  html += '</div>';
+
+  wrap.innerHTML = html;
+
+  // 点击切换
+  wrap.querySelectorAll('.structc-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const ri = parseInt(cell.dataset.row);
+      const ci = parseInt(cell.dataset.col);
+      const cur = model.StructCs[ri][ci];
+      const newVal = cur >= 128 ? 0 : 255;
+      model.StructCs[ri][ci] = newVal;
+      cell.dataset.val = newVal;
+      cell.style.background = newVal >= 128 ? 'var(--accent)' : 'var(--bg3)';
+      cell.title = `C[${ri}] 帧${ci}: ${newVal >= 128 ? 'ON (0xFF)' : 'OFF (0x00)'}`;
+    });
+  });
+}
+
+// ======================================================================
+//  STRINGS EDITOR
+// ======================================================================
+function buildStringList() {
+  const listEl = document.getElementById('string-list');
+  const strings = model?.Strings || [];
+  listEl.innerHTML = '';
+  strings.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'str-item';
+    const preview = (s || '').replace(/\r/g, '').replace(/\n/g, '⏎');
+    const short = preview.length > 30 ? preview.substring(0, 30) + '…' : preview;
+    div.textContent = i.toString().padStart(3, '0') + '  ' + short;
+    div.onclick = () => selectString(i);
+    listEl.appendChild(div);
+  });
+  updateStringStats();
+}
+
+function selectString(i) {
+  selectedStringIndex = i;
+  const el = document.getElementById('string-list');
+  el.querySelectorAll('.str-item').forEach((d, j) => d.classList.toggle('active', j === i));
+  document.getElementById('string-text').value = model?.Strings?.[i] || '';
+}
+
+// String edit: push history on blur (not every keystroke)
+document.getElementById('string-text').addEventListener('blur', () => {
+  if (selectedStringIndex < 0 || !model?.Strings) return;
+  const v = document.getElementById('string-text').value;
+  if (model.Strings[selectedStringIndex] !== v) {
+    pushHistory();
+    model.Strings[selectedStringIndex] = v;
+    buildStringList();
+  }
+});
+// Keep live sync on input (without pushing history)
+document.getElementById('string-text').addEventListener('input', () => {
+  if (selectedStringIndex < 0 || !model?.Strings) return;
+  model.Strings[selectedStringIndex] = document.getElementById('string-text').value;
+  buildStringList();
+});
+
+document.getElementById('strBtnAdd').addEventListener('click', () => {
+  if (!model) return;
+  if (!model.Strings) model.Strings = [];
+  pushHistory();
+  const idx = Math.max(0, selectedStringIndex);
+  model.Strings.splice(idx + 1, 0, '');
+  buildStringList();
+  selectString(idx + 1);
+});
+
+document.getElementById('strBtnDel').addEventListener('click', () => {
+  if (!model || selectedStringIndex < 0) return;
+  pushHistory();
+  model.Strings.splice(selectedStringIndex, 1);
+  buildStringList();
+  const newIdx = Math.min(selectedStringIndex, model.Strings.length - 1);
+  selectString(newIdx >= 0 ? newIdx : -1);
+});
+
+document.getElementById('strBtnUp').addEventListener('click', () => {
+  if (!model || selectedStringIndex <= 0) return;
+  pushHistory();
+  [model.Strings[selectedStringIndex - 1], model.Strings[selectedStringIndex]] =
+    [model.Strings[selectedStringIndex], model.Strings[selectedStringIndex - 1]];
+  buildStringList();
+  selectString(selectedStringIndex - 1);
+});
+
+document.getElementById('strBtnDown').addEventListener('click', () => {
+  if (!model || selectedStringIndex < 0 || selectedStringIndex >= model.Strings.length - 1) return;
+  pushHistory();
+  [model.Strings[selectedStringIndex], model.Strings[selectedStringIndex + 1]] =
+    [model.Strings[selectedStringIndex + 1], model.Strings[selectedStringIndex]];
+  buildStringList();
+  selectString(selectedStringIndex + 1);
+});
+
+function updateStringStats() {
+  const strings = model?.Strings || [];
+  let sum = 2 + 2 * strings.length;
+  for (const s of strings) sum += new TextEncoder().encode(s || '').length + 1;
+  const warn = (sum - 2 - 2 * strings.length) > 0xFFFF;
+  document.getElementById('string-stats').textContent = warn
+    ? t("strOverflow") + " " + (sum - 2 - 2 * strings.length) + t("strOverflowEnd")
+    : t("strOK") + " " + (sum - 2 - 2 * strings.length) + t("strOKEnd");
+  document.getElementById('string-stats').style.color = warn ? 'var(--orange)' : 'var(--text2)';
+}
+
+// ======================================================================
+//  TAB SWITCHING
+// ======================================================================
+document.querySelectorAll('#tab-bar .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#tab-bar .tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('#panels .panel').forEach(p => p.classList.remove('active'));
+    const panelId = tab.dataset.panel;
+    document.getElementById(panelId).classList.add('active');
+    if (panelId === 'canvas-panel') drawCanvas();
+    if (panelId === 'stateaction-panel') buildStateActionTable();
+  });
+});
+
+// ======================================================================
+//  FILTERS
+// ======================================================================
+document.getElementById('filterAnim1').addEventListener('input', buildNodes);
+document.getElementById('filterAnim2').addEventListener('input', buildNodes);
+document.getElementById('searchState').addEventListener('input', () => {
+  const q = document.getElementById('searchState').value.toLowerCase().trim();
+  const results = document.getElementById('searchResults');
+  if (!q || !model) { results.style.display = 'none'; return; }
+  const matches = [];
+  for (const st of (model.States || [])) {
+    const dbg = debugStates[st.Index]?.StateName || '';
+    const sb1 = (model.StructBs || [])[st.StructBid];
+    const anim1 = sb1?.Unk00 ?? -1;
+    if (dbg.toLowerCase().includes(q) || st.Index.toString().includes(q) || anim1.toString().includes(q)) {
+      matches.push({ index: st.Index, name: dbg, anim1 });
+    }
+    if (matches.length >= 30) break;
+  }
+  if (matches.length === 0) {
+    results.style.display = 'block';
+    results.innerHTML = '<div style="padding:6px 10px;color:var(--text2)">无匹配结果</div>';
+    return;
+  }
+  results.style.display = 'block';
+  results.innerHTML = matches.map(m => `
+    <div class="search-item" data-idx="${m.index}" style="padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+      <span style="color:var(--accent)">S${m.index}</span>
+      <span style="color:var(--text2);margin-left:6px">A1:${m.anim1}</span>
+      ${m.name ? `<span style="color:var(--green);margin-left:6px">${m.name}</span>` : ''}
+    </div>
+  `).join('');
+  results.querySelectorAll('.search-item').forEach(item => {
+    item.addEventListener('click', () => jumpToState(parseInt(item.dataset.idx)));
+    item.addEventListener('mouseenter', function() { this.style.background = 'var(--surface2)'; });
+    item.addEventListener('mouseleave', function() { this.style.background = ''; });
+  });
+});
+
+function jumpToState(idx) {
+  const nd = nodes.find(n => n.index === idx);
+  if (!nd) return;
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('searchState').value = '';
+  // Set focus to this state with 2-hop
+  selectedNodes.clear();
+  selectedNodes.add(idx);
+  document.getElementById('focusLevel').value = '2';
+  buildNodes();
+  // Now center on it
+  const nd2 = nodes.find(n => n.index === idx);
+  if (!nd2) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  panX = rect.width/2 - (nd2.x + nd2.w/2) * canvasScale;
+  panY = rect.height/2 - (nd2.y + nd2.h/2) * canvasScale;
+  document.getElementById('panInfo').textContent = `${panX.toFixed(0)},${panY.toFixed(0)}`;
+  window._highlightIdx = idx;
+  drawCanvas();
+  setTimeout(() => { window._highlightIdx = -1; drawCanvas(); }, 3000);
+}
+
+// Hide search results on click outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#searchState') && !e.target.closest('#searchResults')) {
+    document.getElementById('searchResults').style.display = 'none';
+  }
+});
+
+// Auto-layout button (force-directed)
+const autoLayoutBtn = document.createElement('button');
+autoLayoutBtn.className = 'tb-btn';
+autoLayoutBtn.setAttribute('data-i18n', 'forceLayout'); autoLayoutBtn.textContent = t('forceLayout');
+autoLayoutBtn.style.cssText = 'margin-left:12px;font-size:11px;padding:3px 8px';
+autoLayoutBtn.onclick = () => { if(is3d)toggle3D(); forceLayout(); };
+document.getElementById('canvas-toolbar').appendChild(autoLayoutBtn);
+
+// Grid layout button
+const gridBtn = document.createElement('button');
+gridBtn.className = 'tb-btn';
+gridBtn.setAttribute('data-i18n', 'gridLayout'); gridBtn.textContent = t('gridLayout');
+gridBtn.style.cssText = 'font-size:11px;padding:3px 8px';
+gridBtn.onclick = () => {
+  if(is3d)toggle3D();
+  const n = nodes.length;
+  if (n === 0) return;
+  const cols = Math.ceil(Math.sqrt(n));
+  nodes.forEach((nd, i) => {
+    nd.x = 50 + (i % cols) * 180;
+    nd.y = 50 + Math.floor(i / cols) * 140;
+  });
+  drawCanvas();
+  toast(t('gridDone'), 'success');
+};
+document.getElementById('canvas-toolbar').appendChild(gridBtn);
+
+// 3D toggle button
+const btn3d = document.createElement('button');
+btn3d.className = 'tb-btn';
+btn3d.id = 'btn3dToggle';
+btn3d.setAttribute('data-i18n', 'toggle3DView'); btn3d.textContent = t('toggle3DView');
+btn3d.style.cssText = 'font-size:11px;padding:3px 8px';
+btn3d.onclick = () => toggle3D();
+document.getElementById('canvas-toolbar').appendChild(btn3d);
+
+// Tree layout button
+const treeBtn = document.createElement('button');
+treeBtn.className = 'tb-btn';
+treeBtn.setAttribute('data-i18n', 'treeLayout'); treeBtn.textContent = t('treeLayout');
+treeBtn.style.cssText = 'font-size:11px;padding:3px 8px';
+treeBtn.onclick = () => { if(is3d)toggle3D(); treeLayout(); };
+document.getElementById('canvas-toolbar').appendChild(treeBtn);
+
+// Tree layout: BFS from root nodes, layers by depth
+function treeLayout() {
+  if (nodes.length === 0) { toast('没有节点', 'error'); return; }
+  const n = nodes.length;
+  // Build adjacency and in-degree
+  const nodeMap = new Map();
+  for (let i = 0; i < n; i++) nodeMap.set(nodes[i].index, i);
+  const adj = new Array(n).fill(null).map(() => []);
+  const inDeg = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const st = nodes[i].state;
+    if (!st.Transitions) continue;
+    for (const tr of st.Transitions) {
+      const j = nodeMap.get(tr.StateIndex);
+      if (j !== undefined && j !== i) {
+        adj[i].push(j);
+        inDeg[j]++;
+      }
+    }
+  }
+  // Roots: nodes with inDeg === 0 (or just first node if none)
+  const roots = [];
+  for (let i = 0; i < n; i++) {
+    if (inDeg[i] === 0) roots.push(i);
+  }
+  if (roots.length === 0) roots.push(0);
+  // BFS to assign layers
+  const layer = new Array(n).fill(-1);
+  const queue = [];
+  for (const r of roots) { layer[r] = 0; queue.push(r); }
+  while (queue.length > 0) {
+    const u = queue.shift();
+    for (const v of adj[u]) {
+      if (layer[v] === -1) {
+        layer[v] = layer[u] + 1;
+        queue.push(v);
+      }
+    }
+  }
+  // Assign remaining nodes to deepest layer
+  let maxLayer = Math.max(...layer.filter(l => l >= 0), 0);
+  for (let i = 0; i < n; i++) {
+    if (layer[i] === -1) layer[i] = ++maxLayer;
+  }
+  // Group by layer
+  const layers = {};
+  for (let i = 0; i < n; i++) {
+    const l = layer[i];
+    if (!layers[l]) layers[l] = [];
+    layers[l].push(i);
+  }
+  // Position nodes — adaptive spacing
+  const hSpacing = n > 150 ? 130 : n > 80 ? 155 : 180;
+  const vSpacing = n > 150 ? 90 : n > 80 ? 115 : 140;
+  const sortedLayers = Object.keys(layers).map(Number).sort((a,b) => a-b);
+  for (const l of sortedLayers) {
+    const row = layers[l];
+    const totalW = row.length * hSpacing;
+    const startX = 50 + Math.max(0, (sortedLayers.length > 0 ? 400 - totalW/2 : 0));
+    row.forEach((idx, col) => {
+      nodes[idx].x = startX + col * hSpacing;
+      nodes[idx].y = 50 + l * vSpacing;
+    });
+  }
+  drawCanvas();
+  toast(t('treeDone') + ' (' + sortedLayers.length + t('treeLayers'), 'success');
+}
+
+// Force-directed layout
+function forceLayout(iterations = 300) {
+  if (nodes.length === 0) { toast('没有节点', 'error'); return; }
+  toast(t('forceRunning'), 'info');
+  const n = nodes.length;
+  // Build edge list
+  const edges = [];
+  const nodeMap = new Map();
+  for (let i = 0; i < n; i++) nodeMap.set(nodes[i].index, i);
+  for (let i = 0; i < n; i++) {
+    const st = nodes[i].state;
+    if (!st.Transitions) continue;
+    for (const tr of st.Transitions) {
+      const j = nodeMap.get(tr.StateIndex);
+      if (j !== undefined && j !== i) edges.push({ a: i, b: j });
+    }
+  }
+  // More iterations for larger graphs
+  const iters = n > 200 ? 500 : n > 100 ? 400 : iterations;
+  const area = n * 12000;
+  const k = Math.sqrt(area / n);
+  // Init positions in a circle for better convergence
+  for (let i = 0; i < n; i++) {
+    const angle = (2 * Math.PI * i) / n;
+    const r = k * Math.sqrt(n) * 0.3;
+    nodes[i].x = 500 + r * Math.cos(angle);
+    nodes[i].y = 400 + r * Math.sin(angle);
+  }
+  const temp0 = k * 3;
+  let iter = iters;
+  function step() {
+    if (iter <= 0) { drawCanvas(); toast(t('forceDone'), 'success'); return; }
+    const temp = temp0 * (iter / iters);
+    const fx = new Array(n).fill(0);
+    const fy = new Array(n).fill(0);
+    // Repulsive
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const f = k * k / dist;
+        fx[i] -= (dx / dist) * f; fy[i] -= (dy / dist) * f;
+        fx[j] += (dx / dist) * f; fy[j] += (dy / dist) * f;
+      }
+    }
+    // Attractive
+    for (const e of edges) {
+      const dx = nodes[e.b].x - nodes[e.a].x;
+      const dy = nodes[e.b].y - nodes[e.a].y;
+      const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      const f = (dist * dist) / k;
+      fx[e.a] += (dx / dist) * f; fy[e.a] += (dy / dist) * f;
+      fx[e.b] -= (dx / dist) * f; fy[e.b] -= (dy / dist) * f;
+    }
+    // Apply
+    for (let i = 0; i < n; i++) {
+      const mag = Math.sqrt(fx[i] * fx[i] + fy[i] * fy[i]);
+      if (mag < 0.01) continue;
+      const scale = Math.min(mag, temp) / mag;
+      nodes[i].x += fx[i] * scale;
+      nodes[i].y += fy[i] * scale;
+      nodes[i].x = Math.max(0, Math.min(4000, nodes[i].x));
+      nodes[i].y = Math.max(0, Math.min(4000, nodes[i].y));
+    }
+    iter--;
+    if (iter % 30 === 0 || iter < 5) drawCanvas();
+    setTimeout(step, 1);
+  }
+  step();
+}
+
+// ======================================================================
+//  KEYBOARD SHORTCUTS
+// ======================================================================
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+  if (e.ctrlKey && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveBHV(); }
+  if (e.ctrlKey && e.key === 'd') { e.preventDefault(); duplicateSelected(); }
+  if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('searchState').focus(); }
+  if (e.key === 'Delete' && selectedNodes.size > 0) {
+    e.preventDefault();
+    const n = selectedNodes.size;
+    const delIndices = [...selectedNodes].sort((a, b) => b - a);
+    confirm(t('confirmDeleteMulti') + ' ' + n + ' ' + t('confirmDeleteMsgMulti'), () => {
+      for (const idx of delIndices) {
+      model.States.splice(idx, 1);
+    }
+    model.States.forEach((s, i) => s.Index = i);
+    // Fix cross-references: remap Transition.StateIndex across all states
+    const delSet = new Set(delIndices);
+    for (const st of model.States) {
+      if (!st.Transitions) continue;
+      st.Transitions = st.Transitions.filter(tr => !delSet.has(tr.StateIndex));
+      for (const tr of st.Transitions) {
+        const shift = [...delIndices].filter(d => d < tr.StateIndex).length;
+        tr.StateIndex -= shift;
+      }
+    }
+    pushHistory();
+    selectedNodes.clear();
+    buildNodes();
+    });
+  }
+  if (e.key === 'Escape') {
+    const overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+  }
+});
+
+// ======================================================================
+//  RESIZE
+// ======================================================================
+window.addEventListener('resize', () => {
+  if (is3d) {
+    const c3d = document.getElementById('canvas3d');
+    const rect = c3d.parentElement.getBoundingClientRect();
+    c3d.width = rect.width; c3d.height = rect.height;
+    if (renderer3d) {
+      renderer3d.setSize(rect.width, rect.height);
+      camera3d.aspect = rect.width / Math.max(1, rect.height);
+      camera3d.updateProjectionMatrix();
+    }
+  }
+  drawCanvas();
+});
+
+// ======================================================================
+//  INIT
+// ======================================================================
+async function init() {
+  try {
+    const resp = await api('GET', '/api/data');
+    if (resp.status === 'ok' && resp.data) {
+      model = resp.data;
+      loadModel();
+    }
+    const dbgResp = await api('GET', '/api/debug');
+    if (dbgResp.states) {
+      debugStates = dbgResp.states;
+    }
+  } catch (e) {
+    console.log('Backend not connected, waiting...');
+  }
+  drawCanvas();
+}
+let scene3d, camera3d, renderer3d, spheres3d = [], edges3d = [], is3d = false, ctrl3d = {};
+init();
+applyI18N();
+
+// ======================================================================
+//  3D VIEW
+// ======================================================================
+
+function toggle3D() {
+  is3d = !is3d;
+  const c2d = document.getElementById('state-canvas');
+  const c3d = document.getElementById('canvas3d');
+  const mm = document.getElementById('minimap');
+  const btn = document.getElementById('btn3dToggle');
+  if (is3d) {
+    c2d.style.display = 'none'; mm.style.display = 'none';
+    c3d.style.display = 'block'; init3DScene();
+    buildNodes(); build3DGraph();  // Rebuild from current 2D state
+    if (btn) btn.textContent = t('toggle2DView');
+  } else {
+    c3d.style.display = 'none'; mm.style.display = 'block';
+    c2d.style.display = 'block'; drawCanvas();
+    if (btn) btn.textContent = t('toggle3DView');
+  }
+}
+
+function init3DScene() {
+  if (scene3d) return;
+  const c3d = document.getElementById('canvas3d');
+  const rect = c3d.parentElement.getBoundingClientRect();
+  c3d.width = rect.width; c3d.height = rect.height;
+  scene3d = new THREE.Scene();
+  scene3d.background = new THREE.Color(0x181825);
+  camera3d = new THREE.PerspectiveCamera(45, rect.width / Math.max(1, rect.height), 10, 20000);
+  camera3d.position.set(800, 600, 1200);
+  renderer3d = new THREE.WebGLRenderer({ canvas: c3d, antialias: true });
+  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));  // Sharp rendering
+  renderer3d.setSize(rect.width, rect.height);
+  scene3d.add(new THREE.GridHelper(3000, 30, 0x45475a, 0x282840));
+  scene3d.add(new THREE.AmbientLight(0x404060));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.5);
+  dl.position.set(1, 1, 1); scene3d.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x8899cc, 0.3);
+  dl2.position.set(-0.5, -0.3, -1); scene3d.add(dl2);
+  // Hemisphere light for ambient color variation
+  scene3d.add(new THREE.HemisphereLight(0x8899cc, 0x282840, 0.25));
+  c3d.addEventListener('mousedown', e => {
+    ctrl3d.dragging = true; ctrl3d.lx = e.clientX; ctrl3d.ly = e.clientY;
+    const rect2 = c3d.getBoundingClientRect();
+    const mouse = new THREE.Vector2(((e.clientX-rect2.left)/rect2.width)*2-1, -((e.clientY-rect2.top)/rect2.height)*2+1);
+    const rc = new THREE.Raycaster(); rc.setFromCamera(mouse, camera3d);
+    const hits = rc.intersectObjects(spheres3d);
+    if (hits.length > 0) {
+      const obj = hits[0].object;
+      const idx = obj.userData.index;
+      const baseColor = obj.userData.nodeColor || 0x89b4fa;
+      const baseEmissive = new THREE.Color(baseColor).multiplyScalar(0.2);
+      spheres3d.forEach(s => {
+        const isTarget = s.userData.index === idx;
+        const c = s.userData.nodeColor || 0x89b4fa;
+        s.material.emissive = isTarget ? new THREE.Color(c).multiplyScalar(0.5) : new THREE.Color(c).multiplyScalar(0.2);
+      });
+      // Dbl-click: switch to 2D and focus
+      if (ctrl3d._lastClick && Date.now() - ctrl3d._lastClick < 400) {
+        toggle3D();
+        jumpToState(idx);
+      }
+      ctrl3d._lastClick = Date.now();
+    }
+  });
+  c3d.addEventListener('mousemove', e => {
+    if (!ctrl3d.dragging) return;
+    const dx = e.clientX - ctrl3d.lx, dy = e.clientY - ctrl3d.ly;
+    ctrl3d.lx = e.clientX; ctrl3d.ly = e.clientY;
+    const t = ctrl3d.target || {x:400,y:300,z:0};
+    if (e.shiftKey) { camera3d.position.x -= dx*2; camera3d.position.y += dy*2; }
+    else {
+      const r = Math.sqrt((camera3d.position.x-t.x)**2+(camera3d.position.z-t.z)**2);
+      let a = Math.atan2(camera3d.position.z-t.z, camera3d.position.x-t.x) + dx*0.005;
+      camera3d.position.x = t.x + r*Math.cos(a);
+      camera3d.position.z = t.z + r*Math.sin(a);
+      camera3d.position.y = Math.max(50, Math.min(5000, camera3d.position.y - dy*2));
+    }
+    camera3d.lookAt(t.x, t.y||300, t.z||0);
+  });
+  c3d.addEventListener('mouseup', () => { ctrl3d.dragging = false; });
+  c3d.addEventListener('wheel', e => {
+    e.preventDefault();
+    const t = ctrl3d.target || {x:400,y:300,z:0};
+    const dx = camera3d.position.x-t.x, dy = camera3d.position.y-t.y, dz = camera3d.position.z-t.z;
+    const d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    const nd = Math.max(100, Math.min(8000, d*(e.deltaY>0?1.1:0.9)));
+    camera3d.position.x = t.x + (dx/d)*nd; camera3d.position.y = t.y + (dy/d)*nd; camera3d.position.z = t.z + (dz/d)*nd;
+    camera3d.lookAt(t.x, t.y, t.z);
+  });
+  animate3D();
+}
+
+function build3DGraph() {
+  spheres3d.forEach(s => { s.children.forEach(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); if(s.geometry)s.geometry.dispose(); if(s.material)s.material.dispose(); scene3d.remove(s); });
+  edges3d.forEach(e => { if(e.geometry)e.geometry.dispose(); if(e.material)e.material.dispose(); scene3d.remove(e); });
+  spheres3d = []; edges3d = [];
+  if (nodes.length === 0) return;
+  const n = nodes.length;
+  const nm = new Map(); nodes.forEach((nd,i) => nm.set(nd.index,i));
+  
+  // Vibrant palette — saturated enough for dark bg
+  const PALETTE = [0x74c7ec, 0xa6e3a1, 0xf9e2af, 0xfab387, 0xf38ba8, 0xcba6f7, 0x94e2d5, 0xb4befe, 0xf5c2e7, 0x89dceb];
+  
+  // Force layout from 2D positions, spread Z
+  const pos = nodes.map(nd => ({x: nd.x || 400, y: nd.y || 300, z: (Math.random()-0.5)*400}));
+  const k = Math.sqrt(14000 * n / Math.max(1, n));
+  const iters = n > 150 ? 100 : n > 60 ? 70 : 45;
+  for (let iter=0; iter<iters; iter++) {
+    const temp = k * 3 * (1 - iter/iters);
+    const fx=new Array(n).fill(0),fy=new Array(n).fill(0),fz=new Array(n).fill(0);
+    for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) {
+      const dx=pos[j].x-pos[i].x,dy=pos[j].y-pos[i].y,dz=pos[j].z-pos[i].z;
+      const dist=Math.max(1,Math.sqrt(dx*dx+dy*dy+dz*dz));
+      const f=k*k/dist; fx[i]-=(dx/dist)*f;fy[i]-=(dy/dist)*f;fz[i]-=(dz/dist)*f;
+      fx[j]+=(dx/dist)*f;fy[j]+=(dy/dist)*f;fz[j]+=(dz/dist)*f;
+    }
+    for (const nd of nodes) {
+      const i=nm.get(nd.index); if(i===undefined)continue;
+      const st=nd.state; if(!st?.Transitions)continue;
+      for (const tr of st.Transitions) {
+        const j=nm.get(tr.StateIndex); if(j===undefined||j===i)continue;
+        const dx=pos[j].x-pos[i].x,dy=pos[j].y-pos[i].y,dz=pos[j].z-pos[i].z;
+        const dist=Math.max(1,Math.sqrt(dx*dx+dy*dy+dz*dz));
+        const f=(dist*dist)/k;
+        fx[i]+=(dx/dist)*f;fy[i]+=(dy/dist)*f;fz[i]+=(dz/dist)*f;
+        fx[j]-=(dx/dist)*f;fy[j]-=(dy/dist)*f;fz[j]-=(dz/dist)*f;
+      }
+    }
+    for (let i=0;i<n;i++) {
+      const m=Math.sqrt(fx[i]*fx[i]+fy[i]*fy[i]+fz[i]*fz[i]);
+      if(m<0.01)continue; const s=Math.min(m,temp)/m;
+      pos[i].x+=fx[i]*s;pos[i].y+=fy[i]*s;pos[i].z+=fz[i]*s;
+    }
+  }
+  
+  // Sphere size varied by transition count — more transitions = bigger
+  const sphereCache = {};
+  function sphereGeo(trCnt) {
+    const r = trCnt > 5 ? 20 : trCnt > 0 ? 17 : 14;
+    const key = ''+r;
+    if (!sphereCache[key]) sphereCache[key] = new THREE.SphereGeometry(r, 32, 32);
+    return sphereCache[key];
+  }
+  
+  nodes.forEach((nd,i) => {
+    const hasDbg = !!nd.dbgName;
+    const st = nd.state;
+    const sb1 = (model?.StructBs || [])[st?.StructBid];
+    const anim1 = sb1?.Unk00 ?? -1;
+    const trCnt = st?.Transitions?.length || 0;
+    const cIdx = ((anim1 % PALETTE.length) + PALETTE.length) % PALETTE.length;
+    const nodeColor = hasDbg ? 0xa6e3a1 : PALETTE[cIdx];
+    const colorHex = nodeColor.toString(16).padStart(6,'0');
+    
+    const mat = new THREE.MeshPhongMaterial({
+      color: nodeColor,
+      emissive: new THREE.Color(nodeColor).multiplyScalar(0.25),
+      specular: 0x666666,
+      shininess: 50,
+    });
+    const geo = sphereGeo(trCnt);
+    const sp = new THREE.Mesh(geo, mat);
+    sp.position.set(pos[i].x, pos[i].y, pos[i].z);
+    sp.userData = {index: nd.index, anim1, trCnt, hasDbg, nodeColor};
+    scene3d.add(sp); spheres3d.push(sp);
+    
+    // Glow ring around sphere
+    const ringGeo = new THREE.TorusGeometry(geo.parameters.radius + 2, 1.2, 8, 32);
+    const ringMat = new THREE.MeshBasicMaterial({color: nodeColor, transparent: true, opacity: 0.35, depthWrite: false});
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI/2;
+    sp.add(ring);
+    
+    // Compact label (matching 2D style)
+    const cvs = document.createElement('canvas');
+    cvs.width = 512; cvs.height = 128;
+    const cx = cvs.getContext('2d');
+    cx.fillStyle = 'rgba(12,12,22,0.95)';
+    const bw = 440, bh = 96, bx = 36, by = 16;
+    cx.beginPath(); cx.moveTo(bx+12,by); cx.lineTo(bx+bw-12,by);
+    cx.quadraticCurveTo(bx+bw,by,bx+bw,by+12); cx.lineTo(bx+bw,by+bh-12);
+    cx.quadraticCurveTo(bx+bw,by+bh,bx+bw-12,by+bh); cx.lineTo(bx+12,by+bh);
+    cx.quadraticCurveTo(bx,by+bh,bx,by+bh-12); cx.lineTo(bx,by+12);
+    cx.quadraticCurveTo(bx,by,bx+12,by);
+    cx.fill();
+    cx.strokeStyle = '#' + colorHex;
+    cx.lineWidth = 5; cx.stroke();
+    cx.fillStyle = '#ffffff';
+    cx.font = 'bold 48px "Segoe UI", sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('S' + nd.index, 256, 52);
+    cx.fillStyle = '#' + colorHex;
+    cx.font = '28px "Segoe UI", sans-serif';
+    cx.fillText('A1:' + anim1 + (trCnt ? '  →'+trCnt : ''), 256, 88);
+    
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.position.set(0, geo.parameters.radius + 20, 0);
+    sprite.scale.set(70, 18, 1);
+    sprite.userData = { isLabel: true, baseDist: 70 };
+    sp.add(sprite);
+  });
+  
+  // Curved tubes with arrow cones
+  nodes.forEach((nd,i) => {
+    const st = nd.state; if(!st?.Transitions)return;
+    for (const tr of st.Transitions) {
+      const j = nm.get(tr.StateIndex); if(j===undefined||j===i)continue;
+      const cc = tr.Conditions?.length||0;
+      const edgeColor = cc>5?0xf38ba8:cc>0?0x74c7ec:0x9399b2;
+      const tubeRadius = cc>5?2.5:cc>0?2:1.2;
+      const opacity = cc>5?0.8:cc>0?0.55:0.3;
+      
+      const p1 = new THREE.Vector3(pos[i].x, pos[i].y, pos[i].z);
+      const p2 = new THREE.Vector3(pos[j].x, pos[j].y, pos[j].z);
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+      const dist = p1.distanceTo(p2);
+      const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+      mid.add(perp.multiplyScalar(dist * 0.1));
+      
+      const curve = new THREE.QuadraticBezierCurve3(p1.clone(), mid, p2.clone());
+      const tubeGeo = new THREE.TubeGeometry(curve, 16, tubeRadius, 8, false);
+      const tubeMat = new THREE.MeshPhongMaterial({
+        color: edgeColor,
+        emissive: new THREE.Color(edgeColor).multiplyScalar(0.2),
+        transparent: true, opacity, depthWrite: true
+      });
+      const tube = new THREE.Mesh(tubeGeo, tubeMat);
+      scene3d.add(tube); edges3d.push(tube);
+      
+      // Arrow cone at end of tube
+      const endPt = curve.getPoint(0.92);
+      const endTangent = curve.getTangent(0.92).normalize();
+      const coneGeo = new THREE.ConeGeometry(tubeRadius * 2, tubeRadius * 5, 6);
+      const coneMat = new THREE.MeshPhongMaterial({color: edgeColor, emissive: new THREE.Color(edgeColor).multiplyScalar(0.2)});
+      const cone = new THREE.Mesh(coneGeo, coneMat);
+      cone.position.copy(endPt);
+      // Align cone with tangent
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), endTangent);
+      scene3d.add(cone); edges3d.push(cone);
+    }
+  });
+  
+  const cx=pos.reduce((s,p)=>s+p.x,0)/n, cy=pos.reduce((s,p)=>s+p.y,0)/n, cz=pos.reduce((s,p)=>s+p.z,0)/n;
+  ctrl3d.target = {x:cx,y:cy,z:cz};
+  camera3d.position.set(cx+400, cy+500, cz+700); camera3d.lookAt(cx,cy,cz);
+}
+
+function animate3D() { if(!is3d){requestAnimationFrame(animate3D);return;}
+  // Auto-resize on window change
+  const c3d = document.getElementById('canvas3d');
+  const rect = c3d.parentElement.getBoundingClientRect();
+  if (Math.abs(c3d.width - rect.width) > 2 || Math.abs(c3d.height - rect.height) > 2) {
+    c3d.width = rect.width; c3d.height = rect.height;
+    if (renderer3d) {
+      renderer3d.setSize(rect.width, rect.height);
+      camera3d.aspect = rect.width / Math.max(1, rect.height);
+      camera3d.updateProjectionMatrix();
+    }
+  }
+  // Scale labels to maintain readability
+  spheres3d.forEach(sp => {
+    sp.children.forEach(child => {
+      if (child.userData?.isLabel) {
+        const dist = camera3d.position.distanceTo(sp.position);
+        const s = Math.max(0.3, Math.min(2, dist / 800));
+        child.scale.set(child.userData.baseDist * s * 1.5, child.userData.baseDist * s * 0.35, 1);
+      }
+    });
+  });
+  renderer3d.render(scene3d,camera3d); requestAnimationFrame(animate3D); }
+
+</script>
+
+</body>
+</html>
