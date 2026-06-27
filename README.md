@@ -30,11 +30,23 @@ BHV files are binary behavior files from **Armored Core 6 (AC6)**, typically loc
 - **StructB / StructC / StructD** — Additional binary configuration data
 
 Three file types:
-| Type | File Name | Description |
-|------|-----------|-------------|
-| `basenormal.bhv` | `basenormal.bhv` | Base enemy/soldier behavior |
-| `weapon.bhv` | `weapon.bhv` | Weapon behavior |
-| `w.bhv` | `w.bhv` | Generic/world behavior |
+| Type | Enum | File Name | Description |
+|------|------|-----------|-------------|
+| `basenormal.bhv` | `BASENORMAL` | `basenormal.bhv` | Base enemy/soldier behavior state machine |
+| `weapon.bhv` | `WEAPON` | `weapon.bhv` | Weapon behavior — defines how weapons call animations |
+| `w.bhv` | `W` | `w.bhv` | Generic behavior file (same structure as weapon) |
+
+**Weapon BHV files** (`weapon.bhv` / `w.bhv`) are used by weapons to **call and control animations**. Each State in a weapon BHV typically corresponds to an animation ID (`Unk04` field), and Transitions define the conditions for switching between animations (e.g., fire → reload → idle).
+
+### Key Fields
+
+| Field | Meaning |
+|-------|---------|
+| `State.Unk04` | Animation ID — which animation this state calls |
+| `Transition.StateIndex` | Target state index — where to transition to |
+| `Transition.StructAbb.BehaviorMatrixParam_f/i` | Behavior matrix parameter (AI decision weight) |
+| `Condition.Id` | Condition type (HP threshold, distance, timer, random, etc.) |
+| `Condition.Data` | Condition parameters (hex bytes)
 
 ---
 
@@ -71,12 +83,62 @@ Open **http://localhost:8000** in your browser to access the visual editor.
 
 ### Web UI Features
 
-- **State List** — View all states with their indices
-- **Transition Editor** — Add/edit/delete transitions between states
-- **Condition Editor** — Set conditions for each transition
-- **Binary Preview** — View raw hex data of StructB/StructC/StructD
-- **JSON Import/Export** — For batch editing or backup
-- **Debug Overlay** — Load debug JSON to see state names
+The editor is a **canvas-based state machine editor** with multiple panels.
+
+#### Toolbar
+
+| Button | Shortcut | Description |
+|--------|----------|-------------|
+| 📂 打开 BHV | — | Select and open a `.bhv` file from your computer |
+| 📥 导入 JSON | — | Import from a previously exported JSON file |
+| 📤 导出 JSON | — | Export current file as JSON (for backup/inspection) |
+| 🐛 载入调试 JSON | — | Load a debug JSON with state names (from game data) |
+| 💾 保存 BHV | — | Save and download the modified `.bhv` file |
+| ➕ 新建状态 | — | Add a new empty state to the end of the list |
+| ↩ 撤销 / ↪ 重做 | `Ctrl+Z` / `Ctrl+Y` | Undo/redo editing operations |
+| 🌐 EN/中 | — | Toggle between English and Chinese UI |
+
+#### Panels (tab-switchable)
+
+**Canvas Panel** — Visual state machine editor
+```
+┌──────────────────────────────────────────────┐
+│  [Anim1 filter] [Anim2 filter] [search]      │
+│  [100%] [+] [−] [⊞ 适应] [Node: 0] [2跳] [0,0] │
+│                                              │
+│         ┌─────┐     ┌─────┐                  │
+│         │ S0  │────→│ S1  │                  │
+│         │ idle│     │atk1 │                  │
+│         └─────┘     └─────┘                  │
+│            │                                  │
+│            ↓                                  │
+│         ┌─────┐                               │
+│         │ S2  │                               │
+│         │atk2 │                               │
+│         └─────┘                               │
+│  [Minimap]                                    │
+└──────────────────────────────────────────────┘
+```
+
+- **Nodes** represent states — drag to rearrange
+- **Arrows** represent transitions — click to edit
+- **Anim1/Anim2 filters** — highlight states matching animation IDs
+- **Search** — find states by name or index
+- **Zoom** — `+`/`−`/`⊞ 适应` (fit) controls
+- **Node count** — shows total state count
+- **Focus level** — limits visible transitions to N jumps
+- **Minimap** — overview of the entire graph (click to navigate)
+
+**StructB Panel** — Edit StructB entries (binary configuration array)
+
+**StructC Panel** — Edit StructC entries (integer array data)
+
+**Strings Panel** — Edit the strings list
+
+**Mystery Panel** — Edit the MysteryBlock (raw hex)
+
+**JSON Panel** — View the full raw JSON data of the current file
+
 
 ### Quick Actions
 
